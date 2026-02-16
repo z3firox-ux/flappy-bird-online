@@ -53,6 +53,10 @@ public class OnlineMenuScreen implements Screen {
     private ExecutorService networkExecutor;
     private String connectedHost;
 
+    private interface OnlineAction {
+        void run() throws IOException;
+    }
+
     public OnlineMenuScreen(MyGdxGame game) {
         this.game = game;
     }
@@ -89,9 +93,9 @@ public class OnlineMenuScreen implements Screen {
         createRoomButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                runOnlineAction(new Runnable() {
+                runOnlineAction(new OnlineAction() {
                     @Override
-                    public void run() {
+                    public void run() throws IOException {
                         setStatus("Creating room...");
                         String lanIp = ensureLocalServerRunning();
                         setStatus("Server active at " + lanIp + ":" + DEFAULT_PORT + ". Creating room...");
@@ -122,9 +126,9 @@ public class OnlineMenuScreen implements Screen {
                     return;
                 }
 
-                runOnlineAction(new Runnable() {
+                runOnlineAction(new OnlineAction() {
                     @Override
-                    public void run() {
+                    public void run() throws IOException {
                         if (!isServerReachable(hostIp, DEFAULT_PORT)) {
                             setStatus("Server is not active at " + hostIp + ":" + DEFAULT_PORT);
                             return;
@@ -158,7 +162,7 @@ public class OnlineMenuScreen implements Screen {
         Gdx.input.setInputProcessor(stage);
     }
 
-    private void runOnlineAction(Runnable action) {
+    private void runOnlineAction(OnlineAction action) {
         networkExecutor.submit(new Runnable() {
             @Override
             public void run() {
