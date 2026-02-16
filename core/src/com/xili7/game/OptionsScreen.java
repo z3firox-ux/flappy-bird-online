@@ -1,6 +1,7 @@
 package com.xili7.game;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.scenes.scene2d.Stage;
@@ -26,6 +27,8 @@ public class OptionsScreen implements Screen {
 
     @Override
     public void show() {
+        game.applyMusicState();
+
         stage = new Stage(new ScreenViewport(), game.getBatch());
         skin = UiSkinFactory.createDefaultSkin();
 
@@ -40,6 +43,7 @@ public class OptionsScreen implements Screen {
         final Slider volumeSlider = new Slider(0f, 1f, 0.01f, false, skin);
         volumeSlider.setValue(game.getMusicVolume());
 
+        final TextButton muteButton = new TextButton(game.isMuted ? "UNMUTE" : "MUTE", skin);
         TextButton backButton = new TextButton("BACK", skin);
 
         volumeSlider.addListener(new ChangeListener() {
@@ -48,6 +52,14 @@ public class OptionsScreen implements Screen {
                 float value = volumeSlider.getValue();
                 game.setMusicVolume(value);
                 valueLabel.setText(String.format("%.2f", value));
+            }
+        });
+
+        muteButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                game.toggleMute();
+                muteButton.setText(game.isMuted ? "UNMUTE" : "MUTE");
             }
         });
 
@@ -64,7 +76,8 @@ public class OptionsScreen implements Screen {
         table.add(volumeLabel).left();
         table.add(valueLabel).right().row();
         table.add(volumeSlider).colspan(2).width(280f).row();
-        table.add(backButton).colspan(2).width(220f).padTop(24f);
+        table.add(muteButton).colspan(2).width(220f).padTop(8f).row();
+        table.add(backButton).colspan(2).width(220f).padTop(16f);
 
         stage.addActor(table);
         Gdx.input.setInputProcessor(stage);
@@ -72,6 +85,13 @@ public class OptionsScreen implements Screen {
 
     @Override
     public void render(float delta) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            if (onBack != null) {
+                onBack.run();
+            }
+            return;
+        }
+
         Gdx.gl.glClearColor(0.08f, 0.08f, 0.1f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
