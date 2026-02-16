@@ -22,6 +22,7 @@ public class MainScreen implements Screen {
     private Sprite skyBackground;
     private Sprite ground;
     private Sprite startGameButton;
+    private Sprite optionsButton;
     private Sprite logo;
     private Sprite birdSprite;
     private Vector2 logoPosition;
@@ -34,13 +35,14 @@ public class MainScreen implements Screen {
     private final int WORLD_WIDTH = 100;
 
     private Rectangle startGameRect;
+    private Rectangle optionsRect;
 
     public MainScreen(MyGdxGame game) {
         this.game = game;
     }
 
-    private void checkStartGame() {
-        if (null == startGameRect) {
+    private void checkButtons() {
+        if (startGameRect == null) {
             startGameRect = new Rectangle(
                 0.15f * WORLD_WIDTH,
                 0.2f * WORLD_HEIGHT,
@@ -49,13 +51,31 @@ public class MainScreen implements Screen {
             );
         }
 
+        if (optionsRect == null) {
+            optionsRect = new Rectangle(
+                0.45f * WORLD_WIDTH,
+                0.2f * WORLD_HEIGHT,
+                WORLD_WIDTH / 4f,
+                WORLD_HEIGHT / 15f
+            );
+        }
+
         Vector2 touchPoint = viewport.unproject(new Vector2(Gdx.input.getX(), Gdx.input.getY()));
+
         if (Gdx.input.isTouched() && startGameRect.contains(touchPoint)) {
             startGameButton.setY(0.185f * WORLD_HEIGHT);
             game.setScreen(new GameScreen(game));
-        } else {
-            startGameButton.setY(0.2f * WORLD_HEIGHT);
+            return;
         }
+
+        if (Gdx.input.isTouched() && optionsRect.contains(touchPoint)) {
+            optionsButton.setY(0.185f * WORLD_HEIGHT);
+            game.setScreen(new OptionsScreen(game));
+            return;
+        }
+
+        startGameButton.setY(0.2f * WORLD_HEIGHT);
+        optionsButton.setY(0.2f * WORLD_HEIGHT);
     }
 
     @Override
@@ -76,6 +96,9 @@ public class MainScreen implements Screen {
         buttonTexture = createSolidTexture();
         startGameButton = new Sprite(buttonTexture);
         startGameButton.setBounds(0.15f * WORLD_WIDTH, 0.2f * WORLD_HEIGHT, WORLD_WIDTH / 4f, WORLD_HEIGHT / 15f);
+
+        optionsButton = new Sprite(buttonTexture);
+        optionsButton.setBounds(0.45f * WORLD_WIDTH, 0.2f * WORLD_HEIGHT, WORLD_WIDTH / 4f, WORLD_HEIGHT / 15f);
 
         logo = new Sprite(new Texture("png/logo.png"));
         logo.setSize(0.7f * WORLD_WIDTH, 0.1f * WORLD_HEIGHT);
@@ -101,7 +124,7 @@ public class MainScreen implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         viewport.apply();
-        checkStartGame();
+        checkButtons();
         groundOffset = 0;
         logo.setPosition(logoPosition.x, logoPosition.y);
         birdSprite.setPosition(logoPosition.x + logo.getWidth() + 0.03f * WORLD_WIDTH, logoPosition.y + 0.025f * WORLD_HEIGHT);
@@ -114,7 +137,9 @@ public class MainScreen implements Screen {
             batch.draw(ground, (groundOffset + i) * WORLD_WIDTH / 20f, 0, WORLD_WIDTH / 20f, 0.15f * WORLD_HEIGHT);
         }
         startGameButton.draw(batch);
+        optionsButton.draw(batch);
         font.draw(batch, "START", startGameButton.getX() + 0.05f * WORLD_WIDTH, startGameButton.getY() + 0.045f * WORLD_HEIGHT);
+        font.draw(batch, "OPCIONES", optionsButton.getX() + 0.02f * WORLD_WIDTH, optionsButton.getY() + 0.045f * WORLD_HEIGHT);
         logo.draw(batch);
         birdSprite.draw(batch);
         batch.end();
