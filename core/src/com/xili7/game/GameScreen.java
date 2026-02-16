@@ -1,6 +1,5 @@
 package com.xili7.game;
 
-import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Preferences;
@@ -28,6 +27,8 @@ public class GameScreen implements Screen {
 
     private final float pipeSpaceWidth = 4f * WORLD_WIDTH / 6f;
     private final float pipeSpaceHeight = WORLD_HEIGHT / 3f;
+
+    private final MyGdxGame game;
 
     private OrthographicCamera camera;
     private Viewport viewport;
@@ -67,6 +68,10 @@ public class GameScreen implements Screen {
     private int currentScore;
     private int bestScore;
 
+    public GameScreen(MyGdxGame game) {
+        this.game = game;
+    }
+
     @Override
     public void show() {
         camera = new OrthographicCamera();
@@ -75,8 +80,8 @@ public class GameScreen implements Screen {
         camera.position.set(WORLD_WIDTH / 2f, WORLD_HEIGHT / 2f, 0);
         camera.update();
 
-        batch = new SpriteBatch();
-        font = new BitmapFont();
+        batch = game.getBatch();
+        font = game.getFont();
         font.getData().setScale(0.7f);
         glyphLayout = new GlyphLayout();
 
@@ -96,6 +101,14 @@ public class GameScreen implements Screen {
         }
         birdAnimation = new Animation<>(1 / 14f, birdRegions, Animation.PlayMode.LOOP_REVERSED);
 
+        random = new Random();
+        pipes = new Vector2[4];
+        scoreCounted = new boolean[4];
+
+        resetGame();
+    }
+
+    private void resetGame() {
         birdWidth = 0.15f * WORLD_WIDTH;
         birdHeight = WORLD_HEIGHT / 17f;
         birdX = 0.25f * WORLD_WIDTH;
@@ -103,12 +116,11 @@ public class GameScreen implements Screen {
         birdVelocity = 0;
         birdRotation = 0;
 
-        pipes = new Vector2[4];
         pipes[0] = new Vector2(2f * WORLD_WIDTH, 0.5f * WORLD_HEIGHT);
-        scoreCounted = new boolean[4];
-        random = new Random();
+        scoreCounted[0] = false;
         for (int i = 1; i < 4; i++) {
             pipes[i] = new Vector2(pipes[i - 1].x + pipeSpaceWidth, randomPipeY());
+            scoreCounted[i] = false;
         }
 
         notReady = true;
@@ -135,7 +147,7 @@ public class GameScreen implements Screen {
 
         if (gameOver) {
             if (jumpPressed()) {
-                ((Game) Gdx.app.getApplicationListener()).setScreen(new GameScreen());
+                resetGame();
             }
             return;
         }
@@ -296,7 +308,5 @@ public class GameScreen implements Screen {
         pipeHeadTexture1.dispose();
         pipeHeadTexture2.dispose();
         pipeBodyTexture.dispose();
-        font.dispose();
-        batch.dispose();
     }
 }

@@ -1,6 +1,5 @@
 package com.xili7.game;
 
-import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
@@ -16,6 +15,7 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class MainScreen implements Screen {
+    private final MyGdxGame game;
     private SpriteBatch batch;
     private OrthographicCamera camera;
     private Viewport viewport;
@@ -35,6 +35,10 @@ public class MainScreen implements Screen {
 
     private Rectangle startGameRect;
 
+    public MainScreen(MyGdxGame game) {
+        this.game = game;
+    }
+
     private void checkStartGame() {
         if (null == startGameRect) {
             startGameRect = new Rectangle(
@@ -48,7 +52,7 @@ public class MainScreen implements Screen {
         Vector2 touchPoint = viewport.unproject(new Vector2(Gdx.input.getX(), Gdx.input.getY()));
         if (Gdx.input.isTouched() && startGameRect.contains(touchPoint)) {
             startGameButton.setY(0.185f * WORLD_HEIGHT);
-            ((Game) Gdx.app.getApplicationListener()).setScreen(new GameScreen());
+            game.setScreen(new GameScreen(game));
         } else {
             startGameButton.setY(0.2f * WORLD_HEIGHT);
         }
@@ -56,12 +60,12 @@ public class MainScreen implements Screen {
 
     @Override
     public void show() {
-        batch = new SpriteBatch();
+        batch = game.getBatch();
         camera = new OrthographicCamera();
         viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
         viewport.apply();
 
-        font = new BitmapFont();
+        font = game.getFont();
 
         skyBackground = new Sprite(new Texture("png/stage_sky.png"));
         //leave 1/10 of the screen in the bottom for the stage ground.
@@ -133,7 +137,6 @@ public class MainScreen implements Screen {
         buttonTexture.dispose();
         logo.getTexture().dispose();
         birdSprite.getTexture().dispose();
-        font.dispose();
     }
 
     @Override
