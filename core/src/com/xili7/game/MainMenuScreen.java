@@ -6,22 +6,18 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
-public class OptionsScreen implements Screen {
+public class MainMenuScreen implements Screen {
     private final MyGdxGame game;
-    private final Runnable onBack;
-
     private Stage stage;
     private Skin skin;
 
-    public OptionsScreen(MyGdxGame game, Runnable onBack) {
+    public MainMenuScreen(MyGdxGame game) {
         this.game = game;
-        this.onBack = onBack;
     }
 
     @Override
@@ -29,50 +25,53 @@ public class OptionsScreen implements Screen {
         stage = new Stage(new ScreenViewport(), game.getBatch());
         skin = UiSkinFactory.createDefaultSkin();
 
-        Table table = new Table();
-        table.setFillParent(true);
-        table.defaults().pad(10f);
+        Table root = new Table();
+        root.setFillParent(true);
+        root.defaults().pad(12f).width(240f);
 
-        Label title = new Label("OPTIONS", skin);
-        Label volumeLabel = new Label("VOLUME", skin);
-        Label valueLabel = new Label(String.format("%.2f", game.getMusicVolume()), skin);
+        Label title = new Label("FLAPPY BIRD", skin);
+        TextButton playButton = new TextButton("PLAY", skin);
+        TextButton onlineButton = new TextButton("ONLINE", skin);
+        TextButton optionsButton = new TextButton("OPTIONS", skin);
 
-        final Slider volumeSlider = new Slider(0f, 1f, 0.01f, false, skin);
-        volumeSlider.setValue(game.getMusicVolume());
-
-        TextButton backButton = new TextButton("BACK", skin);
-
-        volumeSlider.addListener(new ChangeListener() {
+        playButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                float value = volumeSlider.getValue();
-                game.setMusicVolume(value);
-                valueLabel.setText(String.format("%.2f", value));
+                game.setScreen(new GameScreen(game));
             }
         });
 
-        backButton.addListener(new ChangeListener() {
+        onlineButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                if (onBack != null) {
-                    onBack.run();
-                }
+                onlineButton.setText("ONLINE (COMING SOON)");
             }
         });
 
-        table.add(title).colspan(2).padBottom(24f).row();
-        table.add(volumeLabel).left();
-        table.add(valueLabel).right().row();
-        table.add(volumeSlider).colspan(2).width(280f).row();
-        table.add(backButton).colspan(2).width(220f).padTop(24f);
+        optionsButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                game.setScreen(new OptionsScreen(game, new Runnable() {
+                    @Override
+                    public void run() {
+                        game.setScreen(new MainMenuScreen(game));
+                    }
+                }));
+            }
+        });
 
-        stage.addActor(table);
+        root.add(title).padBottom(32f).row();
+        root.add(playButton).row();
+        root.add(onlineButton).row();
+        root.add(optionsButton).row();
+
+        stage.addActor(root);
         Gdx.input.setInputProcessor(stage);
     }
 
     @Override
     public void render(float delta) {
-        Gdx.gl.glClearColor(0.08f, 0.08f, 0.1f, 1f);
+        Gdx.gl.glClearColor(0.05f, 0.05f, 0.08f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         stage.act(delta);
