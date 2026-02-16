@@ -20,16 +20,18 @@ public class LobbyScreen implements Screen {
     private final MyGdxGame game;
     private final OnlineClient onlineClient;
     private final String roomId;
+    private final String hostIp;
 
     private Stage stage;
     private Skin skin;
     private Texture backgroundTexture;
     private Label statusLabel;
 
-    public LobbyScreen(MyGdxGame game, OnlineClient onlineClient, String roomId) {
+    public LobbyScreen(MyGdxGame game, OnlineClient onlineClient, String roomId, String hostIp) {
         this.game = game;
         this.onlineClient = onlineClient;
         this.roomId = roomId;
+        this.hostIp = hostIp;
     }
 
     @Override
@@ -48,6 +50,7 @@ public class LobbyScreen implements Screen {
         root.defaults().pad(10f);
 
         Label roomLabel = new Label("Room: " + roomId, skin);
+        Label hostIpLabel = new Label(formatHostIp(hostIp), skin);
         statusLabel = new Label("Waiting for player...", skin);
         TextButton cancelButton = new TextButton("Cancel", skin);
 
@@ -60,6 +63,7 @@ public class LobbyScreen implements Screen {
         });
 
         root.add(roomLabel).row();
+        root.add(hostIpLabel).row();
         root.add(statusLabel).row();
         root.add(cancelButton).width(220f).row();
         stage.addActor(root);
@@ -153,5 +157,12 @@ public class LobbyScreen implements Screen {
         if (backgroundTexture != null) {
             backgroundTexture.dispose();
         }
+    }
+
+    private String formatHostIp(String ip) {
+        if (ip == null || ip.trim().isEmpty()) {
+            return "Host IP: unavailable";
+        }
+        return "Host IP: " + ip;
     }
 }
