@@ -31,6 +31,7 @@ public class DesktopLauncher {
         config.setResizable(true);
         config.useVsync(true);
         config.setForegroundFPS(60);
+        config.setWindowIcon("icono.jpg");
 
         if (arg != null && arg.length > 0 && "--fullscreen".equalsIgnoreCase(arg[0])) {
             Graphics.DisplayMode displayMode = Lwjgl3ApplicationConfiguration.getDisplayMode();

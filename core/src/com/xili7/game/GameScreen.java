@@ -50,7 +50,10 @@ public class GameScreen implements Screen {
     private OrthographicCamera camera;
     private Viewport viewport;
     private SpriteBatch batch;
-    private BitmapFont font;
+    private BitmapFont hudFont;
+    private BitmapFont titleFont;
+    private BitmapFont scoreFont;
+    private BitmapFont promptFont;
     private GlyphLayout glyphLayout;
     private Preferences preferences;
 
@@ -110,8 +113,10 @@ public class GameScreen implements Screen {
         camera.update();
 
         batch = game.getBatch();
-        font = game.getFont();
-        font.getData().setScale(0.7f);
+        hudFont = createCrispFont(0.72f);
+        titleFont = createCrispFont(1.12f);
+        scoreFont = createCrispFont(0.92f);
+        promptFont = createCrispFont(0.56f);
         glyphLayout = new GlyphLayout();
 
         game.applyMusicState();
@@ -366,6 +371,16 @@ public class GameScreen implements Screen {
         }
     }
 
+    private BitmapFont createCrispFont(float scale) {
+        BitmapFont font = new BitmapFont();
+        font.getData().setScale(scale);
+        font.setUseIntegerPositions(true);
+        for (TextureRegion region : font.getRegions()) {
+            region.getTexture().setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        }
+        return font;
+    }
+
     private void handleGameOver() {
         gameOver = true;
         birdRotation = -90;
@@ -379,10 +394,13 @@ public class GameScreen implements Screen {
         }
     }
 
-    private void drawCenteredText(String text, float y) {
+    private void drawCenteredText(BitmapFont font, String text, float y, boolean bold) {
         glyphLayout.setText(font, text);
         float x = (WORLD_WIDTH - glyphLayout.width) / 2f;
         font.draw(batch, glyphLayout, x, y);
+        if (bold) {
+            font.draw(batch, glyphLayout, x + 0.2f, y);
+        }
     }
 
     @Override
@@ -415,19 +433,16 @@ public class GameScreen implements Screen {
         }
 
         if (gameOver) {
-            font.getData().setScale(1.1f);
-            drawCenteredText("GAME OVER", 0.65f * WORLD_HEIGHT);
-            font.getData().setScale(0.9f);
-            drawCenteredText("SCORE: " + currentScore, 0.55f * WORLD_HEIGHT);
+            drawCenteredText(titleFont, "GAME OVER", 0.65f * WORLD_HEIGHT, true);
+            drawCenteredText(scoreFont, "SCORE: " + currentScore, 0.55f * WORLD_HEIGHT, true);
             if (newBest) {
-                drawCenteredText("NEW BEST!", 0.46f * WORLD_HEIGHT);
+                drawCenteredText(scoreFont, "NEW BEST!", 0.46f * WORLD_HEIGHT, true);
             }
-            font.getData().setScale(0.7f);
-            drawCenteredText("SPACE / ENTER para reiniciar", 0.32f * WORLD_HEIGHT);
+            drawCenteredText(promptFont, "SPACE/ENTER para reiniciar", 0.32f * WORLD_HEIGHT, true);
         } else {
-            drawCenteredText("Score: " + currentScore, 0.92f * WORLD_HEIGHT);
+            drawCenteredText(scoreFont, "SCORE: " + currentScore, 0.92f * WORLD_HEIGHT, true);
             if (notReady) {
-                drawCenteredText("TAP / SPACE", 0.7f * WORLD_HEIGHT);
+                drawCenteredText(hudFont, "TAP/SPACE", 0.7f * WORLD_HEIGHT, true);
             }
         }
 
@@ -463,6 +478,22 @@ public class GameScreen implements Screen {
 
     @Override
     public void dispose() {
+        if (hudFont != null) {
+            hudFont.dispose();
+            hudFont = null;
+        }
+        if (titleFont != null) {
+            titleFont.dispose();
+            titleFont = null;
+        }
+        if (scoreFont != null) {
+            scoreFont.dispose();
+            scoreFont = null;
+        }
+        if (promptFont != null) {
+            promptFont.dispose();
+            promptFont = null;
+        }
         if (skyTexture != null) {
             skyTexture.dispose();
             skyTexture = null;
