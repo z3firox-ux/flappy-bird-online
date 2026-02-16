@@ -73,7 +73,7 @@ public class MainMenuScreen implements Screen {
         playButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                game.setScreen(new GameScreen(game));
+                switchToGameScreen();
             }
         });
 
@@ -87,6 +87,29 @@ public class MainMenuScreen implements Screen {
         optionsButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                switchToOptionsScreen();
+            }
+        });
+
+        updateMenuLayout();
+        stage.addActor(root);
+        Gdx.input.setInputProcessor(stage);
+    }
+
+
+    private void switchToGameScreen() {
+        Gdx.app.postRunnable(new Runnable() {
+            @Override
+            public void run() {
+                game.setScreen(new GameScreen(game));
+            }
+        });
+    }
+
+    private void switchToOptionsScreen() {
+        Gdx.app.postRunnable(new Runnable() {
+            @Override
+            public void run() {
                 game.setScreen(new OptionsScreen(game, new Runnable() {
                     @Override
                     public void run() {
@@ -95,10 +118,6 @@ public class MainMenuScreen implements Screen {
                 }));
             }
         });
-
-        updateMenuLayout();
-        stage.addActor(root);
-        Gdx.input.setInputProcessor(stage);
     }
 
     private void updateMenuLayout() {

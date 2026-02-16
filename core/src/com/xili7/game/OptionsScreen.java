@@ -4,13 +4,19 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 public class OptionsScreen implements Screen {
@@ -19,6 +25,8 @@ public class OptionsScreen implements Screen {
 
     private Stage stage;
     private Skin skin;
+    private Texture backgroundTexture;
+    private Texture backTexture;
 
     public OptionsScreen(MyGdxGame game, Runnable onBack) {
         this.game = game;
@@ -32,6 +40,14 @@ public class OptionsScreen implements Screen {
         stage = new Stage(new ScreenViewport(), game.getBatch());
         skin = UiSkinFactory.createDefaultSkin();
 
+        backgroundTexture = new Texture("png/stage_sky.png");
+        backTexture = new Texture("png/back.png");
+
+        Image backgroundImage = new Image(backgroundTexture);
+        backgroundImage.setFillParent(true);
+        backgroundImage.setScaling(Scaling.fill);
+        stage.addActor(backgroundImage);
+
         Table table = new Table();
         table.setFillParent(true);
         table.defaults().pad(10f);
@@ -44,7 +60,8 @@ public class OptionsScreen implements Screen {
         volumeSlider.setValue(game.getMusicVolume());
 
         final TextButton muteButton = new TextButton(game.isMuted ? "UNMUTE" : "MUTE", skin);
-        TextButton backButton = new TextButton("BACK", skin);
+        ImageButton backButton = new ImageButton(new TextureRegionDrawable(new TextureRegion(backTexture)));
+        backButton.getImage().setScaling(Scaling.fit);
 
         volumeSlider.addListener(new ChangeListener() {
             @Override
@@ -75,9 +92,9 @@ public class OptionsScreen implements Screen {
         table.add(title).colspan(2).padBottom(24f).row();
         table.add(volumeLabel).left();
         table.add(valueLabel).right().row();
-        table.add(volumeSlider).colspan(2).width(280f).row();
+        table.add(volumeSlider).colspan(2).size(360f, 64f).row();
         table.add(muteButton).colspan(2).width(220f).padTop(8f).row();
-        table.add(backButton).colspan(2).width(220f).padTop(16f);
+        table.add(backButton).colspan(2).size(220f, 72f).padTop(16f);
 
         stage.addActor(table);
         Gdx.input.setInputProcessor(stage);
@@ -124,6 +141,12 @@ public class OptionsScreen implements Screen {
         }
         if (skin != null) {
             skin.dispose();
+        }
+        if (backgroundTexture != null) {
+            backgroundTexture.dispose();
+        }
+        if (backTexture != null) {
+            backTexture.dispose();
         }
     }
 }
