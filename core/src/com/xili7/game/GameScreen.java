@@ -29,8 +29,13 @@ import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import com.xili7.game.online.MessageParser.PlayerState;
+import com.xili7.game.online.OnlineClient;
 
+import java.io.IOException;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GameScreen implements Screen {
     private static final int WORLD_HEIGHT = 200;
@@ -47,6 +52,8 @@ public class GameScreen implements Screen {
     private final float pipeSpaceHeight = WORLD_HEIGHT / 3f;
 
     private final MyGdxGame game;
+    private final OnlineClient onlineClient;
+    private final boolean onlineMode;
 
     private OrthographicCamera camera;
     private Viewport viewport;
@@ -64,6 +71,9 @@ public class GameScreen implements Screen {
     private Texture pipeHeadTexture1;
     private Texture pipeHeadTexture2;
     private Texture pipeBodyTexture;
+
+    // Multiplayer-only overlay data. Offline physics/gameplay remains untouched.
+    private final Map<String, PlayerState> remotePlayers = new ConcurrentHashMap<>();
 
     private Animation<TextureRegion> birdAnimation;
 
@@ -102,7 +112,13 @@ public class GameScreen implements Screen {
     private Texture mainMenuButtonTexture;
 
     public GameScreen(MyGdxGame game) {
+        this(game, null);
+    }
+
+    public GameScreen(MyGdxGame game, OnlineClient onlineClient) {
         this.game = game;
+        this.onlineClient = onlineClient;
+        this.onlineMode = onlineClient != null;
     }
 
     @Override
@@ -145,6 +161,10 @@ public class GameScreen implements Screen {
         createPauseUi();
 
         resetGame();
+
+        if (onlineMode) {
+            initializeOnlineClient();
+        }
     }
 
     private void createPauseUi() {
@@ -281,6 +301,39 @@ public class GameScreen implements Screen {
         animationTime = 0;
     }
 
+    private void initializeOnlineClient() {
+        onlineClient.setListener(new OnlineClient.Listener() {
+            @Override
+            public void onPlayerState(PlayerState state) {
+                if (onlineClient.getPlayerId() != null && onlineClient.getPlayerId().equals(state.playerId())) {
+                    return;
+                }
+                remotePlayers.put(state.playerId(), state);
+            }
+
+            @Override
+            public void onSnapshot(java.util.List<PlayerState> states) {
+                for (PlayerState state : states) {
+                    if (onlineClient.getPlayerId() != null && onlineClient.getPlayerId().equals(state.playerId())) {
+                        continue;
+                    }
+                    remotePlayers.put(state.playerId(), state);
+                }
+            }
+
+            @Override
+            public void onPlayerLeft(String playerId) {
+                remotePlayers.remove(playerId);
+            }
+        });
+
+        try {
+            onlineClient.connect();
+        } catch (IOException e) {
+            Gdx.app.error("GameScreen", "Could not connect to online server", e);
+        }
+    }
+
     private float randomPipeY() {
         return (random.nextFloat() * 0.4f + 0.2f) * WORLD_HEIGHT;
     }
@@ -323,6 +376,10 @@ public class GameScreen implements Screen {
             notReady = false;
             birdVelocity = 130;
             birdRotation = 0;
+
+            if (onlineMode && onlineClient.isConnected()) {
+                onlineClient.sendJump();
+            }
         }
 
         if (!notReady) {
@@ -356,6 +413,10 @@ public class GameScreen implements Screen {
             groundOffset -= WORLD_WIDTH / 20f;
             if (groundOffset <= -WORLD_WIDTH / 20f) {
                 groundOffset = 0;
+            }
+
+            if (onlineMode && onlineClient.isConnected()) {
+                onlineClient.sendState(birdX, birdY, currentScore);
             }
         }
     }
@@ -438,6 +499,12 @@ public class GameScreen implements Screen {
         TextureRegion birdFrame = birdAnimation.getKeyFrame(animationTime, true);
         batch.draw(birdFrame, birdX, birdY, birdWidth / 2f, birdHeight / 2f, birdWidth, birdHeight, 1f, 1f, birdRotation);
 
+        if (onlineMode) {
+            for (PlayerState remote : remotePlayers.values()) {
+                batch.draw(birdFrame, remote.x(), remote.y(), birdWidth / 2f, birdHeight / 2f, birdWidth, birdHeight, 1f, 1f, 0f);
+            }
+        }
+
         for (int i = 0; i < 25; i++) {
             batch.draw(groundTexture, groundOffset + i * WORLD_WIDTH / 20f, 0, WORLD_WIDTH / 20f, 0.15f * WORLD_HEIGHT);
         }
@@ -488,6 +555,9 @@ public class GameScreen implements Screen {
 
     @Override
     public void dispose() {
+        if (onlineMode && onlineClient != null) {
+            onlineClient.disconnect();
+        }
         if (hudFont != null) {
             hudFont.dispose();
             hudFont = null;
