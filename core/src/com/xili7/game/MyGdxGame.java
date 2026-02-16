@@ -15,6 +15,8 @@ public class MyGdxGame extends Game {
     private SpriteBatch batch;
     private BitmapFont font;
     private Music backgroundMusic;
+    private float musicVolume = 0.5f;
+    private boolean musicEnabled = true;
 
     @Override
     public void create() {
@@ -27,8 +29,7 @@ public class MyGdxGame extends Game {
 
         backgroundMusic = Gdx.audio.newMusic(selectedMusic);
         backgroundMusic.setLooping(true);
-        backgroundMusic.setVolume(0.5f);
-        backgroundMusic.play();
+        applyMusicState();
 
         setScreen(new MainScreen(this));
     }
@@ -39,6 +40,40 @@ public class MyGdxGame extends Game {
 
     public BitmapFont getFont() {
         return font;
+    }
+
+    public void setMusicEnabled(boolean enabled) {
+        musicEnabled = enabled;
+        applyMusicState();
+    }
+
+    public boolean isMusicEnabled() {
+        return musicEnabled;
+    }
+
+    public void setMusicVolume(float volume) {
+        musicVolume = Math.max(0f, Math.min(1f, volume));
+        applyMusicState();
+    }
+
+    public float getMusicVolume() {
+        return musicVolume;
+    }
+
+    private void applyMusicState() {
+        if (backgroundMusic == null) {
+            return;
+        }
+
+        if (!backgroundMusic.isPlaying()) {
+            backgroundMusic.play();
+        }
+
+        if (musicEnabled) {
+            backgroundMusic.setVolume(musicVolume);
+        } else {
+            backgroundMusic.setVolume(0f);
+        }
     }
 
     @Override
