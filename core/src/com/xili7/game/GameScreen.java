@@ -15,6 +15,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -142,7 +143,6 @@ public class GameScreen implements Screen {
         scoreCounted = new boolean[4];
 
         createPauseUi();
-        Gdx.input.setInputProcessor(inputMultiplexer);
 
         resetGame();
     }
@@ -161,6 +161,16 @@ public class GameScreen implements Screen {
         inputMultiplexer.addProcessor(pauseStage);
 
         setPauseView(PauseView.MENU);
+        setPaused(false);
+    }
+
+    private void setPaused(boolean pausedState) {
+        paused = pausedState;
+        if (pauseRoot != null) {
+            pauseRoot.setVisible(pausedState);
+            pauseRoot.setTouchable(pausedState ? Touchable.enabled : Touchable.disabled);
+        }
+        Gdx.input.setInputProcessor(pausedState ? inputMultiplexer : null);
     }
 
     private void setPauseView(PauseView view) {
@@ -180,7 +190,7 @@ public class GameScreen implements Screen {
             returnButton.addListener(new ChangeListener() {
                 @Override
                 public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                    paused = false;
+                    setPaused(false);
                 }
             });
 
@@ -194,7 +204,7 @@ public class GameScreen implements Screen {
             mainMenuButton.addListener(new ChangeListener() {
                 @Override
                 public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                    paused = false;
+                    setPaused(false);
                     game.setScreen(new MainMenuScreen(game));
                 }
             });
@@ -260,7 +270,7 @@ public class GameScreen implements Screen {
             scoreCounted[i] = false;
         }
 
-        paused = false;
+        setPaused(false);
         setPauseView(PauseView.MENU);
         notReady = true;
         gameOver = false;
@@ -287,10 +297,10 @@ public class GameScreen implements Screen {
                 if (pauseView == PauseView.OPTIONS) {
                     setPauseView(PauseView.MENU);
                 } else {
-                    paused = false;
+                    setPaused(false);
                 }
             } else {
-                paused = true;
+                setPaused(true);
                 setPauseView(PauseView.MENU);
             }
         }
