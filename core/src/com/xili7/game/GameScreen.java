@@ -15,13 +15,16 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -90,6 +93,9 @@ public class GameScreen implements Screen {
     private Table pauseRoot;
     private Slider pauseVolumeSlider;
     private Label pauseVolumeValue;
+    private Texture backButtonTexture;
+    private Texture optionsButtonTexture;
+    private Texture mainMenuButtonTexture;
 
     public GameScreen(MyGdxGame game) {
         this.game = game;
@@ -139,6 +145,9 @@ public class GameScreen implements Screen {
     private void createPauseUi() {
         pauseStage = new Stage(new ScreenViewport(), batch);
         pauseSkin = UiSkinFactory.createDefaultSkin();
+        backButtonTexture = new Texture("png/back.png");
+        optionsButtonTexture = new Texture("png/options.png");
+        mainMenuButtonTexture = new Texture("png/mainmenu.png");
         pauseRoot = new Table();
         pauseRoot.setFillParent(true);
         pauseStage.addActor(pauseRoot);
@@ -156,9 +165,12 @@ public class GameScreen implements Screen {
 
         if (view == PauseView.MENU) {
             Label title = new Label("PAUSED", pauseSkin);
-            TextButton returnButton = new TextButton("RETURN", pauseSkin);
-            TextButton optionsButton = new TextButton("OPTIONS", pauseSkin);
-            TextButton mainMenuButton = new TextButton("MAIN MENU", pauseSkin);
+            ImageButton returnButton = new ImageButton(new TextureRegionDrawable(new TextureRegion(backButtonTexture)));
+            ImageButton optionsButton = new ImageButton(new TextureRegionDrawable(new TextureRegion(optionsButtonTexture)));
+            ImageButton mainMenuButton = new ImageButton(new TextureRegionDrawable(new TextureRegion(mainMenuButtonTexture)));
+            returnButton.getImage().setScaling(Scaling.fit);
+            optionsButton.getImage().setScaling(Scaling.fit);
+            mainMenuButton.getImage().setScaling(Scaling.fit);
 
             returnButton.addListener(new ChangeListener() {
                 @Override
@@ -183,9 +195,9 @@ public class GameScreen implements Screen {
             });
 
             pauseRoot.add(title).padBottom(20f).row();
-            pauseRoot.add(returnButton).width(240f).row();
-            pauseRoot.add(optionsButton).width(240f).row();
-            pauseRoot.add(mainMenuButton).width(240f).row();
+            pauseRoot.add(returnButton).size(220f, 72f).row();
+            pauseRoot.add(optionsButton).size(220f, 72f).row();
+            pauseRoot.add(mainMenuButton).size(240f, 72f).row();
         } else {
             Label title = new Label("PAUSE OPTIONS", pauseSkin);
             Label volumeLabel = new Label("VOLUME", pauseSkin);
@@ -482,6 +494,18 @@ public class GameScreen implements Screen {
         if (pauseSkin != null) {
             pauseSkin.dispose();
             pauseSkin = null;
+        }
+        if (backButtonTexture != null) {
+            backButtonTexture.dispose();
+            backButtonTexture = null;
+        }
+        if (optionsButtonTexture != null) {
+            optionsButtonTexture.dispose();
+            optionsButtonTexture = null;
+        }
+        if (mainMenuButtonTexture != null) {
+            mainMenuButtonTexture.dispose();
+            mainMenuButtonTexture = null;
         }
     }
 }
