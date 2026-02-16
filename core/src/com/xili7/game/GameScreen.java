@@ -15,6 +15,8 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 import java.util.Random;
 
@@ -28,6 +30,7 @@ public class GameScreen implements Screen {
     private final float pipeSpaceHeight = WORLD_HEIGHT / 3f;
 
     private OrthographicCamera camera;
+    private Viewport viewport;
     private SpriteBatch batch;
     private BitmapFont font;
     private GlyphLayout glyphLayout;
@@ -66,7 +69,9 @@ public class GameScreen implements Screen {
 
     @Override
     public void show() {
-        camera = new OrthographicCamera(WORLD_WIDTH, WORLD_HEIGHT);
+        camera = new OrthographicCamera();
+        viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
+        viewport.apply();
         camera.position.set(WORLD_WIDTH / 2f, WORLD_HEIGHT / 2f, 0);
         camera.update();
 
@@ -223,6 +228,7 @@ public class GameScreen implements Screen {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        viewport.apply();
         camera.update();
         batch.setProjectionMatrix(camera.combined);
 
@@ -266,10 +272,7 @@ public class GameScreen implements Screen {
 
     @Override
     public void resize(int width, int height) {
-        camera.viewportWidth = WORLD_WIDTH;
-        camera.viewportHeight = WORLD_HEIGHT;
-        camera.position.set(WORLD_WIDTH / 2f, WORLD_HEIGHT / 2f, 0);
-        camera.update();
+        viewport.update(width, height, true);
     }
 
     @Override

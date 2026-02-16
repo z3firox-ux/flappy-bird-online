@@ -12,10 +12,13 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class MainScreen implements Screen {
     private SpriteBatch batch;
     private OrthographicCamera camera;
+    private Viewport viewport;
     private Sprite skyBackground;
     private Sprite ground;
     private Sprite startGameButton;
@@ -34,12 +37,18 @@ public class MainScreen implements Screen {
 
     private void checkStartGame() {
         if (null == startGameRect) {
-            startGameRect = new Rectangle((int) (0.15 * Gdx.graphics.getWidth()), 4 * Gdx.graphics.getHeight() / 5 - Gdx.graphics.getHeight() / 15, Gdx.graphics.getWidth() / 4, Gdx.graphics.getHeight() / 15);
+            startGameRect = new Rectangle(
+                0.15f * WORLD_WIDTH,
+                0.2f * WORLD_HEIGHT,
+                WORLD_WIDTH / 4f,
+                WORLD_HEIGHT / 15f
+            );
         }
 
-        if (Gdx.input.isTouched() && startGameRect.contains(Gdx.input.getX(), Gdx.input.getY())) {
+        Vector2 touchPoint = viewport.unproject(new Vector2(Gdx.input.getX(), Gdx.input.getY()));
+        if (Gdx.input.isTouched() && startGameRect.contains(touchPoint)) {
             startGameButton.setY(0.185f * WORLD_HEIGHT);
-            ((Game)Gdx.app.getApplicationListener()).setScreen(new GameScreen());
+            ((Game) Gdx.app.getApplicationListener()).setScreen(new GameScreen());
         } else {
             startGameButton.setY(0.2f * WORLD_HEIGHT);
         }
@@ -48,7 +57,10 @@ public class MainScreen implements Screen {
     @Override
     public void show() {
         batch = new SpriteBatch();
-        camera = new OrthographicCamera(100, 200);
+        camera = new OrthographicCamera();
+        viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
+        viewport.apply();
+
         font = new BitmapFont();
 
         skyBackground = new Sprite(new Texture("png/stage_sky.png"));
@@ -68,8 +80,6 @@ public class MainScreen implements Screen {
         Texture birdTexture = new Texture(Gdx.files.internal("png/bird.png"));
         birdSprite = new Sprite(birdTexture, 0, 0, birdTexture.getWidth(), 59);
         birdSprite.setSize(0.15f * WORLD_WIDTH, WORLD_HEIGHT / 17f);
-
-
     }
 
     private Texture createSolidTexture() {
@@ -86,6 +96,7 @@ public class MainScreen implements Screen {
         Gdx.gl.glClearColor(1, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        viewport.apply();
         checkStartGame();
         groundOffset = 0;
         logo.setPosition(logoPosition.x, logoPosition.y);
@@ -107,7 +118,7 @@ public class MainScreen implements Screen {
 
     @Override
     public void resize(int width, int height) {
-        camera.position.set(100 / 2f, 200 / 2f, 0);
+        viewport.update(width, height, true);
     }
 
     @Override
