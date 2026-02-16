@@ -3,6 +3,7 @@ package com.xili7.game;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -20,6 +21,8 @@ import java.util.Random;
 public class GameScreen implements Screen {
     private static final int WORLD_HEIGHT = 200;
     private static final int WORLD_WIDTH = 100;
+    private static final String PREFS_NAME = "flappy-bird-online";
+    private static final String PREF_BEST_SCORE = "best-score";
 
     private final float pipeSpaceWidth = 4f * WORLD_WIDTH / 6f;
     private final float pipeSpaceHeight = WORLD_HEIGHT / 3f;
@@ -28,6 +31,7 @@ public class GameScreen implements Screen {
     private SpriteBatch batch;
     private BitmapFont font;
     private GlyphLayout glyphLayout;
+    private Preferences preferences;
 
     private Texture skyTexture;
     private Texture groundTexture;
@@ -58,7 +62,7 @@ public class GameScreen implements Screen {
     private boolean newBest;
 
     private int currentScore;
-    private static int bestScore;
+    private int bestScore;
 
     @Override
     public void show() {
@@ -70,6 +74,9 @@ public class GameScreen implements Screen {
         font = new BitmapFont();
         font.getData().setScale(0.7f);
         glyphLayout = new GlyphLayout();
+
+        preferences = Gdx.app.getPreferences(PREFS_NAME);
+        bestScore = preferences.getInteger(PREF_BEST_SCORE, 0);
 
         skyTexture = new Texture("png/stage_sky.png");
         groundTexture = new Texture("png/stage_ground.png");
@@ -194,9 +201,12 @@ public class GameScreen implements Screen {
         gameOver = true;
         birdRotation = -90;
         birdY = 0.15f * WORLD_HEIGHT;
+
         if (currentScore > bestScore) {
             bestScore = currentScore;
             newBest = true;
+            preferences.putInteger(PREF_BEST_SCORE, bestScore);
+            preferences.flush();
         }
     }
 
@@ -217,6 +227,7 @@ public class GameScreen implements Screen {
         batch.setProjectionMatrix(camera.combined);
 
         batch.begin();
+
         batch.draw(skyTexture, 0, 0.15f * WORLD_HEIGHT, WORLD_WIDTH, 0.85f * WORLD_HEIGHT);
 
         for (Vector2 pipe : pipes) {
@@ -233,23 +244,21 @@ public class GameScreen implements Screen {
             batch.draw(groundTexture, groundOffset + i * WORLD_WIDTH / 20f, 0, WORLD_WIDTH / 20f, 0.15f * WORLD_HEIGHT);
         }
 
-        drawCenteredText("Score: " + currentScore, 0.92f * WORLD_HEIGHT);
-
-        if (notReady) {
-            drawCenteredText("TAP / SPACE", 0.7f * WORLD_HEIGHT);
-        }
-
         if (gameOver) {
             font.getData().setScale(1.1f);
             drawCenteredText("GAME OVER", 0.65f * WORLD_HEIGHT);
-            font.getData().setScale(0.8f);
-            drawCenteredText("Score: " + currentScore, 0.55f * WORLD_HEIGHT);
-            drawCenteredText("Best: " + bestScore, 0.48f * WORLD_HEIGHT);
+            font.getData().setScale(0.9f);
+            drawCenteredText("SCORE: " + currentScore, 0.55f * WORLD_HEIGHT);
             if (newBest) {
-                drawCenteredText("NEW BEST!", 0.41f * WORLD_HEIGHT);
+                drawCenteredText("NEW BEST!", 0.46f * WORLD_HEIGHT);
             }
-            drawCenteredText("SPACE / ENTER para reiniciar", 0.30f * WORLD_HEIGHT);
             font.getData().setScale(0.7f);
+            drawCenteredText("SPACE / ENTER para reiniciar", 0.32f * WORLD_HEIGHT);
+        } else {
+            drawCenteredText("Score: " + currentScore, 0.92f * WORLD_HEIGHT);
+            if (notReady) {
+                drawCenteredText("TAP / SPACE", 0.7f * WORLD_HEIGHT);
+            }
         }
 
         batch.end();
