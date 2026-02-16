@@ -57,6 +57,26 @@ public final class MessageParser {
         return serialize("JOIN");
     }
 
+    public static String createRoom() {
+        return serialize("CREATE_ROOM");
+    }
+
+    public static String joinRoom(String roomId) {
+        return serialize("JOIN_ROOM", roomId);
+    }
+
+    public static String roomCreated(String roomId) {
+        return serialize("ROOM_CREATED", roomId);
+    }
+
+    public static String roomJoined(String roomId) {
+        return serialize("ROOM_JOINED", roomId);
+    }
+
+    public static String start() {
+        return serialize("START");
+    }
+
     public static String welcome(String playerId) {
         return serialize("WELCOME", playerId);
     }

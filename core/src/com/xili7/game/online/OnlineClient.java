@@ -21,6 +21,15 @@ public class OnlineClient {
         default void onConnected(String playerId) {
         }
 
+        default void onRoomCreated(String roomId) {
+        }
+
+        default void onRoomJoined(String roomId) {
+        }
+
+        default void onStart() {
+        }
+
         default void onPlayerState(PlayerState state) {
         }
 
@@ -31,6 +40,9 @@ public class OnlineClient {
         }
 
         default void onPlayerLeft(String playerId) {
+        }
+
+        default void onServerError(String errorMessage) {
         }
 
         default void onDisconnected() {
@@ -46,6 +58,7 @@ public class OnlineClient {
     private volatile Listener listener;
     private volatile boolean connected;
     private volatile String playerId;
+    private volatile String roomId;
 
     private Socket socket;
     private PrintWriter writer;
@@ -94,6 +107,8 @@ public class OnlineClient {
             }
         }
 
+        roomId = null;
+
         Listener current = listener;
         if (current != null) {
             current.onDisconnected();
@@ -108,8 +123,33 @@ public class OnlineClient {
         return playerId;
     }
 
+    public String getRoomId() {
+        return roomId;
+    }
+
+    public void createRoom() {
+        if (!connected) {
+            return;
+        }
+        writer.println(MessageParser.createRoom());
+        if (writer.checkError()) {
+            disconnect();
+        }
+    }
+
+    public void joinRoom(String requestedRoomId) {
+        if (!connected || requestedRoomId == null || requestedRoomId.isBlank()) {
+            return;
+        }
+
+        writer.println(MessageParser.joinRoom(requestedRoomId.trim().toUpperCase()));
+        if (writer.checkError()) {
+            disconnect();
+        }
+    }
+
     public void sendJump() {
-        if (!connected || playerId == null) {
+        if (!connected || playerId == null || roomId == null) {
             return;
         }
         writer.println(MessageParser.jump(playerId));
@@ -119,7 +159,7 @@ public class OnlineClient {
     }
 
     public void sendState(float x, float y, int score) {
-        if (!connected || playerId == null) {
+        if (!connected || playerId == null || roomId == null) {
             return;
         }
         writer.println(MessageParser.state(playerId, x, y, score));
@@ -160,6 +200,19 @@ public class OnlineClient {
                     current.onConnected(playerId);
                 }
             }
+            case "ROOM_CREATED" -> {
+                if (message.size() > 0) {
+                    roomId = message.arg(0);
+                    current.onRoomCreated(roomId);
+                }
+            }
+            case "ROOM_JOINED" -> {
+                if (message.size() > 0) {
+                    roomId = message.arg(0);
+                    current.onRoomJoined(roomId);
+                }
+            }
+            case "START" -> current.onStart();
             case "STATE" -> current.onPlayerState(MessageParser.parseState(message));
             case "BULK_STATE" -> current.onSnapshot(MessageParser.parseBulkState(message));
             case "JUMP" -> {
@@ -170,6 +223,11 @@ public class OnlineClient {
             case "LEFT" -> {
                 if (message.size() > 0) {
                     current.onPlayerLeft(message.arg(0));
+                }
+            }
+            case "ERROR" -> {
+                if (message.size() > 0) {
+                    current.onServerError(message.arg(0));
                 }
             }
             default -> {
