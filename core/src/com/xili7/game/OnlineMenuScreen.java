@@ -16,12 +16,25 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.xili7.game.online.OnlineClient;
+import com.xili7.game.online.OnlineServer;
 
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.Socket;
+import java.util.Enumeration;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class OnlineMenuScreen implements Screen {
     private static final String DEFAULT_HOST = "127.0.0.1";
     private static final int DEFAULT_PORT = 7777;
+    private static final int CONNECT_TIMEOUT_MS = 1200;
+
+    private static final Object SERVER_LOCK = new Object();
+    private static OnlineServer localServer;
 
     private final MyGdxGame game;
 
@@ -31,10 +44,14 @@ public class OnlineMenuScreen implements Screen {
     private OnlineClient onlineClient;
 
     private Label statusLabel;
+    private TextField playerNameField;
+    private TextField ipField;
     private TextField roomIdField;
     private TextButton createRoomButton;
     private TextButton joinRoomButton;
     private TextButton backButton;
+    private ExecutorService networkExecutor;
+    private String connectedHost;
 
     public OnlineMenuScreen(MyGdxGame game) {
         this.game = game;
@@ -44,6 +61,7 @@ public class OnlineMenuScreen implements Screen {
     public void show() {
         stage = new Stage(new ScreenViewport(), game.getBatch());
         skin = UiSkinFactory.createDefaultSkin();
+        networkExecutor = Executors.newSingleThreadExecutor();
 
         backgroundTexture = new Texture("png/stage_sky.png");
         Image background = new Image(backgroundTexture);
@@ -57,6 +75,10 @@ public class OnlineMenuScreen implements Screen {
 
         Label title = new Label("ONLINE", skin);
         statusLabel = new Label("Connect and create/join a room", skin);
+        playerNameField = new TextField("", skin);
+        playerNameField.setMessageText("Player name");
+        ipField = new TextField(DEFAULT_HOST, skin);
+        ipField.setMessageText("Host IP");
         roomIdField = new TextField("", skin);
         roomIdField.setMessageText("Room ID");
 
@@ -70,7 +92,10 @@ public class OnlineMenuScreen implements Screen {
                 runOnlineAction(new Runnable() {
                     @Override
                     public void run() {
-                        statusLabel.setText("Creating room...");
+                        setStatus("Creating room...");
+                        String lanIp = ensureLocalServerRunning();
+                        setStatus("Server active at " + lanIp + ":" + DEFAULT_PORT + ". Creating room...");
+                        ensureConnected(DEFAULT_HOST);
                         onlineClient.createRoom();
                     }
                 });
@@ -81,6 +106,17 @@ public class OnlineMenuScreen implements Screen {
             @Override
             public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
                 final String requestedRoomId = roomIdField.getText() == null ? "" : roomIdField.getText().trim();
+                final String requestedName = playerNameField.getText() == null ? "" : playerNameField.getText().trim();
+                final String hostIp = ipField.getText() == null ? "" : ipField.getText().trim();
+
+                if (requestedName.isEmpty()) {
+                    statusLabel.setText("Please enter your player name");
+                    return;
+                }
+                if (hostIp.isEmpty()) {
+                    statusLabel.setText("Please enter a host IP");
+                    return;
+                }
                 if (requestedRoomId.isEmpty()) {
                     statusLabel.setText("Please enter a room ID");
                     return;
@@ -89,7 +125,12 @@ public class OnlineMenuScreen implements Screen {
                 runOnlineAction(new Runnable() {
                     @Override
                     public void run() {
-                        statusLabel.setText("Joining room " + requestedRoomId.toUpperCase() + "...");
+                        if (!isServerReachable(hostIp, DEFAULT_PORT)) {
+                            setStatus("Server is not active at " + hostIp + ":" + DEFAULT_PORT);
+                            return;
+                        }
+                        setStatus("Joining as " + requestedName + " in room " + requestedRoomId.toUpperCase() + "...");
+                        ensureConnected(hostIp);
                         onlineClient.joinRoom(requestedRoomId);
                     }
                 });
@@ -105,6 +146,8 @@ public class OnlineMenuScreen implements Screen {
         });
 
         root.add(title).row();
+        root.add(playerNameField).row();
+        root.add(ipField).row();
         root.add(roomIdField).row();
         root.add(createRoomButton).row();
         root.add(joinRoomButton).row();
@@ -116,72 +159,112 @@ public class OnlineMenuScreen implements Screen {
     }
 
     private void runOnlineAction(Runnable action) {
-        try {
-            ensureConnected();
-            action.run();
-        } catch (IOException e) {
-            statusLabel.setText("Connection error: " + e.getMessage());
+        networkExecutor.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    action.run();
+                } catch (IOException e) {
+                    setStatus("Connection error: " + e.getMessage());
+                } catch (Exception e) {
+                    setStatus("Online error: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    private void ensureConnected(String host) throws IOException {
+        synchronized (this) {
+            if (onlineClient != null && onlineClient.isConnected() && host.equals(connectedHost)) {
+                return;
+            }
+            safeDisconnect();
+
+            onlineClient = new OnlineClient(host, DEFAULT_PORT);
+            connectedHost = host;
+            onlineClient.setListener(new OnlineClient.Listener() {
+                @Override
+                public void onConnected(String playerId) {
+                    setStatus("Connected as " + playerId + " on " + host);
+                }
+
+                @Override
+                public void onRoomCreated(String roomId) {
+                    moveToLobby(roomId);
+                }
+
+                @Override
+                public void onRoomJoined(String roomId) {
+                    moveToLobby(roomId);
+                }
+
+                @Override
+                public void onServerError(String errorMessage) {
+                    setStatus("Server error: " + errorMessage);
+                }
+
+                @Override
+                public void onError(Exception exception) {
+                    setStatus("Network error: " + exception.getMessage());
+                }
+
+                @Override
+                public void onDisconnected() {
+                    setStatus("Disconnected");
+                }
+            });
+            onlineClient.connect();
         }
     }
 
-    private void ensureConnected() throws IOException {
-        if (onlineClient != null && onlineClient.isConnected()) {
-            return;
+    private String ensureLocalServerRunning() throws IOException {
+        synchronized (SERVER_LOCK) {
+            if (localServer == null) {
+                localServer = new OnlineServer(DEFAULT_PORT);
+                localServer.start();
+            }
+            return detectLanIp();
         }
+    }
 
-        onlineClient = new OnlineClient(DEFAULT_HOST, DEFAULT_PORT);
-        onlineClient.setListener(new OnlineClient.Listener() {
-            @Override
-            public void onConnected(String playerId) {
-                Gdx.app.postRunnable(new Runnable() {
-                    @Override
-                    public void run() {
-                        statusLabel.setText("Connected as " + playerId);
+    private String detectLanIp() {
+        try {
+            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            while (networkInterfaces.hasMoreElements()) {
+                NetworkInterface networkInterface = networkInterfaces.nextElement();
+                if (!networkInterface.isUp() || networkInterface.isLoopback()) {
+                    continue;
+                }
+                Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress address = addresses.nextElement();
+                    if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
+                        return address.getHostAddress();
                     }
-                });
+                }
             }
+        } catch (Exception ignored) {
+            // Use fallback.
+        }
+        return DEFAULT_HOST;
+    }
 
-            @Override
-            public void onRoomCreated(String roomId) {
-                moveToLobby(roomId);
-            }
+    private boolean isServerReachable(String host, int port) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
 
+    private void setStatus(String status) {
+        Gdx.app.postRunnable(new Runnable() {
             @Override
-            public void onRoomJoined(String roomId) {
-                moveToLobby(roomId);
-            }
-
-            @Override
-            public void onServerError(String errorMessage) {
-                Gdx.app.postRunnable(new Runnable() {
-                    @Override
-                    public void run() {
-                        statusLabel.setText("Server error: " + errorMessage);
-                    }
-                });
-            }
-
-            @Override
-            public void onError(Exception exception) {
-                Gdx.app.postRunnable(new Runnable() {
-                    @Override
-                    public void run() {
-                        statusLabel.setText("Network error: " + exception.getMessage());
-                    }
-                });
-            }
-
-            @Override
-            public void onDisconnected() {
-                Gdx.app.postRunnable(new Runnable() {
-                    @Override
-                    public void run() {
-                        statusLabel.setText("Disconnected");
-                    }
-                });
+            public void run() {
+                statusLabel.setText(status);
             }
         });
-        onlineClient.connect();
     }
 
     private void moveToLobby(String roomId) {
@@ -197,6 +280,7 @@ public class OnlineMenuScreen implements Screen {
         if (onlineClient != null) {
             onlineClient.disconnect();
             onlineClient = null;
+            connectedHost = null;
         }
     }
 
@@ -243,6 +327,9 @@ public class OnlineMenuScreen implements Screen {
         }
         if (backgroundTexture != null) {
             backgroundTexture.dispose();
+        }
+        if (networkExecutor != null) {
+            networkExecutor.shutdownNow();
         }
     }
 }
