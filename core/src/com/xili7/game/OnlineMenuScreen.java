@@ -29,7 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class OnlineMenuScreen implements Screen {
-    private static final String DEFAULT_HOST = "127.0.0.1";
+    private static final String LOOPBACK_HOST = "127.0.0.1";
     private static final int DEFAULT_PORT = 7777;
     private static final int CONNECT_TIMEOUT_MS = 1200;
 
@@ -81,8 +81,8 @@ public class OnlineMenuScreen implements Screen {
         statusLabel = new Label("Connect and create/join a room", skin);
         playerNameField = new TextField("", skin);
         playerNameField.setMessageText("Player name");
-        ipField = new TextField(DEFAULT_HOST, skin);
-        ipField.setMessageText("Host IP");
+        ipField = new TextField("", skin);
+        ipField.setMessageText("Host IP (shown after Create Room)");
         roomIdField = new TextField("", skin);
         roomIdField.setMessageText("Room ID");
 
@@ -98,8 +98,14 @@ public class OnlineMenuScreen implements Screen {
                     public void run() throws IOException {
                         setStatus("Creating room...");
                         String lanIp = ensureLocalServerRunning();
-                        setStatus("Server active at " + lanIp + ":" + DEFAULT_PORT + ". Creating room...");
-                        ensureConnected(DEFAULT_HOST);
+                        if (lanIp == null || lanIp.isEmpty()) {
+                            setStatus("Room created, but LAN IP could not be detected");
+                            updateIpField("");
+                        } else {
+                            setStatus("Server active at " + lanIp + ":" + DEFAULT_PORT + ". Creating room...");
+                            updateIpField(lanIp);
+                        }
+                        ensureConnected(LOOPBACK_HOST);
                         onlineClient.createRoom();
                     }
                 });
@@ -247,10 +253,21 @@ public class OnlineMenuScreen implements Screen {
                     }
                 }
             }
-        } catch (Exception ignored) {
-            // Use fallback.
+        } catch (Exception e) {
+            setStatus("Could not inspect network interfaces: " + e.getMessage());
+            return null;
         }
-        return DEFAULT_HOST;
+
+        try {
+            InetAddress localHost = InetAddress.getLocalHost();
+            if (localHost instanceof Inet4Address && !localHost.isLoopbackAddress()) {
+                return localHost.getHostAddress();
+            }
+        } catch (Exception e) {
+            setStatus("Could not resolve local host IP: " + e.getMessage());
+        }
+
+        return null;
     }
 
     private boolean isServerReachable(String host, int port) {
@@ -276,6 +293,15 @@ public class OnlineMenuScreen implements Screen {
             @Override
             public void run() {
                 game.setScreen(new LobbyScreen(game, onlineClient, roomId));
+            }
+        });
+    }
+
+    private void updateIpField(String ip) {
+        Gdx.app.postRunnable(new Runnable() {
+            @Override
+            public void run() {
+                ipField.setText(ip == null ? "" : ip);
             }
         });
     }
