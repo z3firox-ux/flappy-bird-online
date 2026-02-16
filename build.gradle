@@ -1,13 +1,3 @@
-buildscript {
-    repositories {
-        mavenCentral()
-        maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:1.2.3'
-    }
-}
-
 allprojects {
     apply plugin: "eclipse"
     apply plugin: "idea"
@@ -32,7 +22,6 @@ allprojects {
 project(":desktop") {
     apply plugin: "java"
 
-
     dependencies {
         compile project(":core")
         compile "com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion"
@@ -41,27 +30,8 @@ project(":desktop") {
     }
 }
 
-project(":android") {
-    apply plugin: "android"
-
-    configurations { natives }
-
-    dependencies {
-        compile project(":core")
-        compile "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
-        natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi"
-        natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
-        natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86"
-        compile "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
-        natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-armeabi"
-        natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-armeabi-v7a"
-        natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-x86"
-    }
-}
-
 project(":core") {
     apply plugin: "java"
-
 
     dependencies {
         compile "com.badlogicgames.gdx:gdx:$gdxVersion"
