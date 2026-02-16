@@ -15,13 +15,16 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -91,6 +94,10 @@ public class GameScreen implements Screen {
     private Slider pauseVolumeSlider;
     private Label pauseVolumeValue;
 
+    private Texture pauseBackTexture;
+    private Texture pauseOptionsTexture;
+    private Texture pauseMainMenuTexture;
+
     public GameScreen(MyGdxGame game) {
         this.game = game;
     }
@@ -119,6 +126,10 @@ public class GameScreen implements Screen {
         pipeHeadTexture1 = new Texture("png/pipe_head_1.png");
         pipeHeadTexture2 = new Texture("png/pipe_head_2.png");
         pipeBodyTexture = new Texture("png/pipe_body.png");
+
+        pauseBackTexture = new Texture("png/ok.png");
+        pauseOptionsTexture = new Texture("png/options.png");
+        pauseMainMenuTexture = new Texture("png/start.png");
 
         Array<TextureRegion> birdRegions = new Array<>();
         for (int i = 0; i < 3; i++) {
@@ -156,9 +167,9 @@ public class GameScreen implements Screen {
 
         if (view == PauseView.MENU) {
             Label title = new Label("PAUSED", pauseSkin);
-            TextButton returnButton = new TextButton("RETURN", pauseSkin);
-            TextButton optionsButton = new TextButton("OPTIONS", pauseSkin);
-            TextButton mainMenuButton = new TextButton("MAIN MENU", pauseSkin);
+            ImageButton returnButton = createPauseMenuButton(pauseBackTexture);
+            ImageButton optionsButton = createPauseMenuButton(pauseOptionsTexture);
+            ImageButton mainMenuButton = createPauseMenuButton(pauseMainMenuTexture);
 
             returnButton.addListener(new ChangeListener() {
                 @Override
@@ -182,10 +193,21 @@ public class GameScreen implements Screen {
                 }
             });
 
-            pauseRoot.add(title).padBottom(20f).row();
-            pauseRoot.add(returnButton).width(240f).row();
-            pauseRoot.add(optionsButton).width(240f).row();
-            pauseRoot.add(mainMenuButton).width(240f).row();
+            float viewportWidth = pauseStage.getViewport().getWorldWidth();
+            float viewportHeight = pauseStage.getViewport().getWorldHeight();
+            float[] returnSize = fitSize(pauseBackTexture, viewportWidth * 0.34f, viewportHeight * 0.095f);
+            float[] optionsSize = fitSize(pauseOptionsTexture, viewportWidth * 0.34f, viewportHeight * 0.095f);
+            float[] mainMenuSize = fitSize(pauseMainMenuTexture, viewportWidth * 0.34f, viewportHeight * 0.095f);
+            float buttonPad = Math.max(8f, viewportHeight * 0.016f);
+
+            returnButton.setSize(returnSize[0], returnSize[1]);
+            optionsButton.setSize(optionsSize[0], optionsSize[1]);
+            mainMenuButton.setSize(mainMenuSize[0], mainMenuSize[1]);
+
+            pauseRoot.add(title).padBottom(Math.max(16f, viewportHeight * 0.03f)).row();
+            pauseRoot.add(returnButton).size(returnSize[0], returnSize[1]).padBottom(buttonPad).row();
+            pauseRoot.add(optionsButton).size(optionsSize[0], optionsSize[1]).padBottom(buttonPad).row();
+            pauseRoot.add(mainMenuButton).size(mainMenuSize[0], mainMenuSize[1]).row();
         } else {
             Label title = new Label("PAUSE OPTIONS", pauseSkin);
             Label volumeLabel = new Label("VOLUME", pauseSkin);
@@ -219,13 +241,34 @@ public class GameScreen implements Screen {
                 }
             });
 
-            pauseRoot.add(title).colspan(2).padBottom(20f).row();
+            float viewportWidth = pauseStage.getViewport().getWorldWidth();
+            float viewportHeight = pauseStage.getViewport().getWorldHeight();
+
+            pauseRoot.add(title).colspan(2).padBottom(Math.max(16f, viewportHeight * 0.03f)).row();
             pauseRoot.add(volumeLabel).left();
             pauseRoot.add(pauseVolumeValue).right().row();
-            pauseRoot.add(pauseVolumeSlider).colspan(2).width(260f).row();
-            pauseRoot.add(muteButton).colspan(2).width(220f).padTop(8f).row();
-            pauseRoot.add(backButton).colspan(2).width(220f).padTop(16f);
+            pauseRoot.add(pauseVolumeSlider).colspan(2)
+                .size(Math.min(viewportWidth * 0.62f, 360f), Math.max(36f, viewportHeight * 0.06f)).row();
+            pauseRoot.add(muteButton).colspan(2).width(Math.min(viewportWidth * 0.34f, 220f)).padTop(8f).row();
+            pauseRoot.add(backButton).colspan(2).width(Math.min(viewportWidth * 0.34f, 220f)).padTop(16f);
         }
+    }
+
+    private ImageButton createPauseMenuButton(Texture texture) {
+        TextureRegionDrawable drawable = new TextureRegionDrawable(new TextureRegion(texture));
+        ImageButton.ImageButtonStyle style = new ImageButton.ImageButtonStyle();
+        style.imageUp = drawable;
+        style.imageDown = drawable;
+
+        ImageButton button = new ImageButton(style);
+        button.getImage().setScaling(Scaling.fit);
+        return button;
+    }
+
+    private float[] fitSize(Texture texture, float maxWidth, float maxHeight) {
+        float scale = Math.min(maxWidth / texture.getWidth(), maxHeight / texture.getHeight());
+        scale = Math.min(scale, 1f);
+        return new float[] {texture.getWidth() * scale, texture.getHeight() * scale};
     }
 
     private void resetGame() {
@@ -432,6 +475,7 @@ public class GameScreen implements Screen {
         viewport.update(width, height, true);
         if (pauseStage != null) {
             pauseStage.getViewport().update(width, height, true);
+            setPauseView(pauseView);
         }
     }
 
@@ -482,6 +526,18 @@ public class GameScreen implements Screen {
         if (pauseSkin != null) {
             pauseSkin.dispose();
             pauseSkin = null;
+        }
+        if (pauseBackTexture != null) {
+            pauseBackTexture.dispose();
+            pauseBackTexture = null;
+        }
+        if (pauseOptionsTexture != null) {
+            pauseOptionsTexture.dispose();
+            pauseOptionsTexture = null;
+        }
+        if (pauseMainMenuTexture != null) {
+            pauseMainMenuTexture.dispose();
+            pauseMainMenuTexture = null;
         }
     }
 }
