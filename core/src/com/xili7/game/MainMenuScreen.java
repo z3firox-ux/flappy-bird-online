@@ -28,6 +28,13 @@ public class MainMenuScreen implements Screen {
     private Texture onlineTexture;
     private Texture optionsTexture;
 
+    private Table root;
+    private Image titleImage;
+    private ImageButton playButton;
+    private ImageButton onlineButton;
+    private ImageButton optionsButton;
+    private Label onlineStatus;
+
     public MainMenuScreen(MyGdxGame game) {
         this.game = game;
     }
@@ -50,18 +57,18 @@ public class MainMenuScreen implements Screen {
         background.setScaling(Scaling.fill);
         stage.addActor(background);
 
-        Table root = new Table();
+        root = new Table();
         root.setFillParent(true);
         root.center();
-        root.defaults().pad(10f);
+        root.defaults().center();
 
-        Image title = new Image(titleTexture);
-        title.setScaling(Scaling.fit);
+        titleImage = new Image(titleTexture);
+        titleImage.setScaling(Scaling.fit);
 
-        ImageButton playButton = createMenuButton(playTexture);
-        ImageButton onlineButton = createMenuButton(onlineTexture);
-        ImageButton optionsButton = createMenuButton(optionsTexture);
-        Label onlineStatus = new Label("", skin);
+        playButton = createMenuButton(playTexture);
+        onlineButton = createMenuButton(onlineTexture);
+        optionsButton = createMenuButton(optionsTexture);
+        onlineStatus = new Label("", skin);
 
         playButton.addListener(new ChangeListener() {
             @Override
@@ -89,17 +96,40 @@ public class MainMenuScreen implements Screen {
             }
         });
 
-        root.add(title)
-            .size(titleTexture.getWidth(), titleTexture.getHeight())
-            .padBottom(26f)
-            .row();
-        root.add(playButton).size(playTexture.getWidth(), playTexture.getHeight()).row();
-        root.add(onlineButton).size(onlineTexture.getWidth(), onlineTexture.getHeight()).row();
-        root.add(optionsButton).size(optionsTexture.getWidth(), optionsTexture.getHeight()).row();
-        root.add(onlineStatus).padTop(8f).row();
-
+        updateMenuLayout();
         stage.addActor(root);
         Gdx.input.setInputProcessor(stage);
+    }
+
+    private void updateMenuLayout() {
+        float viewportWidth = stage.getViewport().getWorldWidth();
+        float viewportHeight = stage.getViewport().getWorldHeight();
+
+        float[] titleSize = fitSize(titleTexture, viewportWidth * 0.72f, viewportHeight * 0.22f);
+        float[] playSize = fitSize(playTexture, viewportWidth * 0.48f, viewportHeight * 0.11f);
+        float[] onlineSize = fitSize(onlineTexture, viewportWidth * 0.48f, viewportHeight * 0.11f);
+        float[] optionsSize = fitSize(optionsTexture, viewportWidth * 0.48f, viewportHeight * 0.11f);
+
+        titleImage.setSize(titleSize[0], titleSize[1]);
+        playButton.setSize(playSize[0], playSize[1]);
+        onlineButton.setSize(onlineSize[0], onlineSize[1]);
+        optionsButton.setSize(optionsSize[0], optionsSize[1]);
+
+        float titleBottomPad = Math.max(10f, viewportHeight * 0.03f);
+        float buttonPad = Math.max(8f, viewportHeight * 0.018f);
+
+        root.clearChildren();
+        root.add(titleImage).size(titleSize[0], titleSize[1]).padBottom(titleBottomPad).row();
+        root.add(playButton).size(playSize[0], playSize[1]).padBottom(buttonPad).row();
+        root.add(onlineButton).size(onlineSize[0], onlineSize[1]).padBottom(buttonPad).row();
+        root.add(optionsButton).size(optionsSize[0], optionsSize[1]).row();
+        root.add(onlineStatus).padTop(Math.max(6f, viewportHeight * 0.012f)).row();
+    }
+
+    private float[] fitSize(Texture texture, float maxWidth, float maxHeight) {
+        float scale = Math.min(maxWidth / texture.getWidth(), maxHeight / texture.getHeight());
+        scale = Math.min(scale, 1f);
+        return new float[] {texture.getWidth() * scale, texture.getHeight() * scale};
     }
 
     private ImageButton createMenuButton(Texture texture) {
@@ -107,7 +137,9 @@ public class MainMenuScreen implements Screen {
         ImageButton.ImageButtonStyle style = new ImageButton.ImageButtonStyle();
         style.imageUp = drawable;
         style.imageDown = drawable;
-        return new ImageButton(style);
+        ImageButton button = new ImageButton(style);
+        button.getImage().setScaling(Scaling.fit);
+        return button;
     }
 
     @Override
@@ -127,6 +159,7 @@ public class MainMenuScreen implements Screen {
     @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
+        updateMenuLayout();
     }
 
     @Override
