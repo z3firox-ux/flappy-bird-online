@@ -108,6 +108,8 @@ public class GameScreen implements Screen {
         font.getData().setScale(0.7f);
         glyphLayout = new GlyphLayout();
 
+        game.applyMusicState();
+
         preferences = Gdx.app.getPreferences(PREFS_NAME);
         bestScore = preferences.getInteger(PREF_BEST_SCORE, 0);
 
@@ -156,6 +158,7 @@ public class GameScreen implements Screen {
             Label title = new Label("PAUSED", pauseSkin);
             TextButton returnButton = new TextButton("RETURN", pauseSkin);
             TextButton optionsButton = new TextButton("OPTIONS", pauseSkin);
+            TextButton mainMenuButton = new TextButton("MAIN MENU", pauseSkin);
 
             returnButton.addListener(new ChangeListener() {
                 @Override
@@ -171,15 +174,25 @@ public class GameScreen implements Screen {
                 }
             });
 
+            mainMenuButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                    paused = false;
+                    game.setScreen(new MainMenuScreen(game));
+                }
+            });
+
             pauseRoot.add(title).padBottom(20f).row();
             pauseRoot.add(returnButton).width(240f).row();
             pauseRoot.add(optionsButton).width(240f).row();
+            pauseRoot.add(mainMenuButton).width(240f).row();
         } else {
             Label title = new Label("PAUSE OPTIONS", pauseSkin);
             Label volumeLabel = new Label("VOLUME", pauseSkin);
             pauseVolumeValue = new Label(String.format("%.2f", game.getMusicVolume()), pauseSkin);
             pauseVolumeSlider = new Slider(0f, 1f, 0.01f, false, pauseSkin);
             pauseVolumeSlider.setValue(game.getMusicVolume());
+            final TextButton muteButton = new TextButton(game.isMuted ? "UNMUTE" : "MUTE", pauseSkin);
             TextButton backButton = new TextButton("BACK", pauseSkin);
 
             pauseVolumeSlider.addListener(new ChangeListener() {
@@ -188,6 +201,14 @@ public class GameScreen implements Screen {
                     float value = pauseVolumeSlider.getValue();
                     game.setMusicVolume(value);
                     pauseVolumeValue.setText(String.format("%.2f", value));
+                }
+            });
+
+            muteButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                    game.toggleMute();
+                    muteButton.setText(game.isMuted ? "UNMUTE" : "MUTE");
                 }
             });
 
@@ -202,7 +223,8 @@ public class GameScreen implements Screen {
             pauseRoot.add(volumeLabel).left();
             pauseRoot.add(pauseVolumeValue).right().row();
             pauseRoot.add(pauseVolumeSlider).colspan(2).width(260f).row();
-            pauseRoot.add(backButton).colspan(2).width(220f).padTop(24f);
+            pauseRoot.add(muteButton).colspan(2).width(220f).padTop(8f).row();
+            pauseRoot.add(backButton).colspan(2).width(220f).padTop(16f);
         }
     }
 
@@ -244,8 +266,14 @@ public class GameScreen implements Screen {
 
     private void update(float delta) {
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && !gameOver) {
-            paused = !paused;
             if (paused) {
+                if (pauseView == PauseView.OPTIONS) {
+                    setPauseView(PauseView.MENU);
+                } else {
+                    paused = false;
+                }
+            } else {
+                paused = true;
                 setPauseView(PauseView.MENU);
             }
         }
@@ -423,17 +451,37 @@ public class GameScreen implements Screen {
 
     @Override
     public void dispose() {
-        skyTexture.dispose();
-        groundTexture.dispose();
-        birdTexture.dispose();
-        pipeHeadTexture1.dispose();
-        pipeHeadTexture2.dispose();
-        pipeBodyTexture.dispose();
+        if (skyTexture != null) {
+            skyTexture.dispose();
+            skyTexture = null;
+        }
+        if (groundTexture != null) {
+            groundTexture.dispose();
+            groundTexture = null;
+        }
+        if (birdTexture != null) {
+            birdTexture.dispose();
+            birdTexture = null;
+        }
+        if (pipeHeadTexture1 != null) {
+            pipeHeadTexture1.dispose();
+            pipeHeadTexture1 = null;
+        }
+        if (pipeHeadTexture2 != null) {
+            pipeHeadTexture2.dispose();
+            pipeHeadTexture2 = null;
+        }
+        if (pipeBodyTexture != null) {
+            pipeBodyTexture.dispose();
+            pipeBodyTexture = null;
+        }
         if (pauseStage != null) {
             pauseStage.dispose();
+            pauseStage = null;
         }
         if (pauseSkin != null) {
             pauseSkin.dispose();
+            pauseSkin = null;
         }
     }
 }

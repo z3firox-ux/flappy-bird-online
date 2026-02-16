@@ -14,19 +14,22 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 public class MyGdxGame extends Game {
     private static final String PREFS_NAME = "flappy-bird-online";
     private static final String PREF_MUSIC_VOLUME = "music-volume";
+    private static final String PREF_MUSIC_MUTED = "music-muted";
 
     private SpriteBatch batch;
     private BitmapFont font;
-    private Music backgroundMusic;
+    public Music backgroundMusic;
     private Preferences preferences;
-    private float musicVolume;
+    public float volume;
+    public boolean isMuted;
 
     @Override
     public void create() {
         batch = new SpriteBatch();
         font = new BitmapFont();
         preferences = Gdx.app.getPreferences(PREFS_NAME);
-        musicVolume = preferences.getFloat(PREF_MUSIC_VOLUME, 0.5f);
+        volume = preferences.getFloat(PREF_MUSIC_VOLUME, 0.5f);
+        isMuted = preferences.getBoolean(PREF_MUSIC_MUTED, false);
 
         FileHandle preferredMusic = Gdx.files.internal("sound/Juego35.wav");
         FileHandle fallbackMusic = Gdx.files.internal("png/Juego 35.wav");
@@ -35,7 +38,7 @@ public class MyGdxGame extends Game {
         backgroundMusic = Gdx.audio.newMusic(selectedMusic);
         backgroundMusic.setLooping(true);
         backgroundMusic.play();
-        backgroundMusic.setVolume(musicVolume);
+        applyMusicState();
 
         setScreen(new MainMenuScreen(this));
     }
@@ -49,18 +52,35 @@ public class MyGdxGame extends Game {
     }
 
     public void setMusicVolume(float volume) {
-        musicVolume = Math.max(0f, Math.min(1f, volume));
-        if (backgroundMusic != null) {
-            backgroundMusic.setVolume(musicVolume);
-        }
+        this.volume = Math.max(0f, Math.min(1f, volume));
+        applyMusicState();
         if (preferences != null) {
-            preferences.putFloat(PREF_MUSIC_VOLUME, musicVolume);
+            preferences.putFloat(PREF_MUSIC_VOLUME, this.volume);
             preferences.flush();
         }
     }
 
+    public void setMuted(boolean muted) {
+        isMuted = muted;
+        applyMusicState();
+        if (preferences != null) {
+            preferences.putBoolean(PREF_MUSIC_MUTED, isMuted);
+            preferences.flush();
+        }
+    }
+
+    public void toggleMute() {
+        setMuted(!isMuted);
+    }
+
+    public void applyMusicState() {
+        if (backgroundMusic != null) {
+            backgroundMusic.setVolume(isMuted ? 0f : volume);
+        }
+    }
+
     public float getMusicVolume() {
-        return musicVolume;
+        return volume;
     }
 
     @Override
