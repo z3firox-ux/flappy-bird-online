@@ -2,6 +2,7 @@ package com.xili7.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
@@ -13,8 +14,16 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Slider;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 import java.util.Random;
@@ -24,6 +33,11 @@ public class GameScreen implements Screen {
     private static final int WORLD_WIDTH = 100;
     private static final String PREFS_NAME = "flappy-bird-online";
     private static final String PREF_BEST_SCORE = "best-score";
+
+    private enum PauseView {
+        MENU,
+        OPTIONS
+    }
 
     private final float pipeSpaceWidth = 4f * WORLD_WIDTH / 6f;
     private final float pipeSpaceHeight = WORLD_HEIGHT / 3f;
@@ -64,9 +78,18 @@ public class GameScreen implements Screen {
     private boolean notReady;
     private boolean gameOver;
     private boolean newBest;
+    private boolean paused;
+    private PauseView pauseView;
 
     private int currentScore;
     private int bestScore;
+
+    private Stage pauseStage;
+    private Skin pauseSkin;
+    private InputMultiplexer inputMultiplexer;
+    private Table pauseRoot;
+    private Slider pauseVolumeSlider;
+    private Label pauseVolumeValue;
 
     public GameScreen(MyGdxGame game) {
         this.game = game;
@@ -105,7 +128,82 @@ public class GameScreen implements Screen {
         pipes = new Vector2[4];
         scoreCounted = new boolean[4];
 
+        createPauseUi();
+        Gdx.input.setInputProcessor(inputMultiplexer);
+
         resetGame();
+    }
+
+    private void createPauseUi() {
+        pauseStage = new Stage(new ScreenViewport(), batch);
+        pauseSkin = UiSkinFactory.createDefaultSkin();
+        pauseRoot = new Table();
+        pauseRoot.setFillParent(true);
+        pauseStage.addActor(pauseRoot);
+
+        inputMultiplexer = new InputMultiplexer();
+        inputMultiplexer.addProcessor(pauseStage);
+
+        setPauseView(PauseView.MENU);
+    }
+
+    private void setPauseView(PauseView view) {
+        pauseView = view;
+        pauseRoot.clearChildren();
+        pauseRoot.defaults().pad(10f);
+
+        if (view == PauseView.MENU) {
+            Label title = new Label("PAUSED", pauseSkin);
+            TextButton returnButton = new TextButton("RETURN", pauseSkin);
+            TextButton optionsButton = new TextButton("OPTIONS", pauseSkin);
+
+            returnButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                    paused = false;
+                }
+            });
+
+            optionsButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                    setPauseView(PauseView.OPTIONS);
+                }
+            });
+
+            pauseRoot.add(title).padBottom(20f).row();
+            pauseRoot.add(returnButton).width(240f).row();
+            pauseRoot.add(optionsButton).width(240f).row();
+        } else {
+            Label title = new Label("PAUSE OPTIONS", pauseSkin);
+            Label volumeLabel = new Label("VOLUME", pauseSkin);
+            pauseVolumeValue = new Label(String.format("%.2f", game.getMusicVolume()), pauseSkin);
+            pauseVolumeSlider = new Slider(0f, 1f, 0.01f, false, pauseSkin);
+            pauseVolumeSlider.setValue(game.getMusicVolume());
+            TextButton backButton = new TextButton("BACK", pauseSkin);
+
+            pauseVolumeSlider.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                    float value = pauseVolumeSlider.getValue();
+                    game.setMusicVolume(value);
+                    pauseVolumeValue.setText(String.format("%.2f", value));
+                }
+            });
+
+            backButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                    setPauseView(PauseView.MENU);
+                }
+            });
+
+            pauseRoot.add(title).colspan(2).padBottom(20f).row();
+            pauseRoot.add(volumeLabel).left();
+            pauseRoot.add(pauseVolumeValue).right().row();
+            pauseRoot.add(pauseVolumeSlider).colspan(2).width(260f).row();
+            pauseRoot.add(backButton).colspan(2).width(220f).padTop(24f);
+        }
     }
 
     private void resetGame() {
@@ -123,6 +221,8 @@ public class GameScreen implements Screen {
             scoreCounted[i] = false;
         }
 
+        paused = false;
+        setPauseView(PauseView.MENU);
         notReady = true;
         gameOver = false;
         newBest = false;
@@ -143,6 +243,18 @@ public class GameScreen implements Screen {
     }
 
     private void update(float delta) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && !gameOver) {
+            paused = !paused;
+            if (paused) {
+                setPauseView(PauseView.MENU);
+            }
+        }
+
+        if (paused) {
+            pauseStage.act(delta);
+            return;
+        }
+
         animationTime += delta;
 
         if (gameOver) {
@@ -280,11 +392,19 @@ public class GameScreen implements Screen {
         }
 
         batch.end();
+
+        if (paused) {
+            pauseStage.getViewport().apply();
+            pauseStage.draw();
+        }
     }
 
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
+        if (pauseStage != null) {
+            pauseStage.getViewport().update(width, height, true);
+        }
     }
 
     @Override
@@ -297,6 +417,7 @@ public class GameScreen implements Screen {
 
     @Override
     public void hide() {
+        Gdx.input.setInputProcessor(null);
         dispose();
     }
 
@@ -308,5 +429,11 @@ public class GameScreen implements Screen {
         pipeHeadTexture1.dispose();
         pipeHeadTexture2.dispose();
         pipeBodyTexture.dispose();
+        if (pauseStage != null) {
+            pauseStage.dispose();
+        }
+        if (pauseSkin != null) {
+            pauseSkin.dispose();
+        }
     }
 }

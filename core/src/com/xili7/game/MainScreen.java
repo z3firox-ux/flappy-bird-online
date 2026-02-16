@@ -70,7 +70,12 @@ public class MainScreen implements Screen {
 
         if (Gdx.input.isTouched() && optionsRect.contains(touchPoint)) {
             optionsButton.setY(0.185f * WORLD_HEIGHT);
-            game.setScreen(new OptionsScreen(game));
+            game.setScreen(new OptionsScreen(game, new Runnable() {
+                @Override
+                public void run() {
+                    game.setScreen(new MainScreen(game));
+                }
+            }));
             return;
         }
 
