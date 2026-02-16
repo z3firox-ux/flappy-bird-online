@@ -16,7 +16,6 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
-import com.xili7.game.online.OnlineClient;
 
 public class MainMenuScreen implements Screen {
     private final MyGdxGame game;
@@ -122,12 +121,11 @@ public class MainMenuScreen implements Screen {
     }
 
     private void switchToOnlineGameScreen() {
-        onlineStatus.setText("Connecting to online server...");
+        onlineStatus.setText("");
         Gdx.app.postRunnable(new Runnable() {
             @Override
             public void run() {
-                OnlineClient client = new OnlineClient("127.0.0.1", 7777);
-                game.setScreen(new GameScreen(game, client));
+                game.setScreen(new OnlineMenuScreen(game));
             }
         });
     }

@@ -31,8 +31,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class OnlineServer {
     private final int port;
     private final AtomicInteger idSequence = new AtomicInteger(1);
+    private final AtomicInteger roomSequence = new AtomicInteger(1);
     private final Map<String, PlayerState> players = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<ClientHandler> clients = new CopyOnWriteArrayList<>();
+    private final Map<String, Room> rooms = new ConcurrentHashMap<>();
 
     private volatile boolean running;
     private ServerSocket serverSocket;
@@ -72,6 +74,7 @@ public class OnlineServer {
         }
         clients.clear();
         players.clear();
+        rooms.clear();
 
         if (serverSocket != null && !serverSocket.isClosed()) {
             try {
@@ -98,7 +101,6 @@ public class OnlineServer {
                 players.put(playerId, new PlayerState(playerId, 0f, 0f, 0));
 
                 clientHandler.send(MessageParser.welcome(playerId));
-                broadcast(MessageParser.state(playerId, 0f, 0f, 0));
 
                 Thread thread = new Thread(clientHandler, "client-" + playerId);
                 thread.start();
@@ -112,30 +114,157 @@ public class OnlineServer {
 
     private void broadcastSnapshotSafely() {
         try {
-            List<PlayerState> snapshot = new ArrayList<>(players.values());
-            broadcast(MessageParser.bulkState(snapshot));
+            for (Room room : rooms.values()) {
+                List<ClientHandler> members = room.membersSnapshot();
+                if (members.isEmpty()) {
+                    continue;
+                }
+
+                List<PlayerState> snapshot = new ArrayList<>(members.size());
+                for (ClientHandler member : members) {
+                    PlayerState state = players.get(member.playerId);
+                    if (state != null) {
+                        snapshot.add(state);
+                    }
+                }
+                if (!snapshot.isEmpty()) {
+                    String bulkMessage = MessageParser.bulkState(snapshot);
+                    for (ClientHandler member : members) {
+                        member.send(bulkMessage);
+                    }
+                }
+            }
         } catch (Exception e) {
             System.err.println("Snapshot broadcast error: " + e.getMessage());
         }
     }
 
-    private void broadcast(String message) {
-        for (ClientHandler client : clients) {
-            client.send(message);
+    private void onStateUpdate(ClientHandler clientHandler, PlayerState state) {
+        players.put(state.playerId(), state);
+        String roomId = clientHandler.roomId;
+        if (roomId != null) {
+            broadcastToRoom(roomId, MessageParser.state(state.playerId(), state.x(), state.y(), state.score()));
         }
     }
 
-    private void onStateUpdate(PlayerState state) {
-        players.put(state.playerId(), state);
-        broadcast(MessageParser.state(state.playerId(), state.x(), state.y(), state.score()));
+    private void handleCreateRoom(ClientHandler clientHandler) {
+        leaveCurrentRoom(clientHandler);
+
+        String roomId = nextRoomId();
+        Room room = new Room(roomId);
+        room.add(clientHandler);
+        rooms.put(roomId, room);
+        clientHandler.roomId = roomId;
+
+        clientHandler.send(MessageParser.roomCreated(roomId));
+    }
+
+    private void handleJoinRoom(ClientHandler clientHandler, ParsedMessage message) {
+        if (message.size() < 1 || message.arg(0).isBlank()) {
+            clientHandler.send(MessageParser.serialize("ERROR", "Room ID is required"));
+            return;
+        }
+
+        String requestedRoomId = message.arg(0).trim().toUpperCase();
+        Room room = rooms.get(requestedRoomId);
+        if (room == null) {
+            clientHandler.send(MessageParser.serialize("ERROR", "Room not found"));
+            return;
+        }
+
+        leaveCurrentRoom(clientHandler);
+
+        synchronized (room) {
+            if (room.size() >= 2) {
+                clientHandler.send(MessageParser.serialize("ERROR", "Room is full"));
+                return;
+            }
+            room.add(clientHandler);
+            clientHandler.roomId = requestedRoomId;
+        }
+
+        clientHandler.send(MessageParser.roomJoined(requestedRoomId));
+        maybeStartRoom(room);
+    }
+
+    private void maybeStartRoom(Room room) {
+        List<ClientHandler> members = room.membersSnapshot();
+        if (members.size() == 2) {
+            for (ClientHandler member : members) {
+                member.send(MessageParser.start());
+            }
+        }
+    }
+
+    private void leaveCurrentRoom(ClientHandler clientHandler) {
+        String currentRoomId = clientHandler.roomId;
+        if (currentRoomId == null) {
+            return;
+        }
+
+        Room room = rooms.get(currentRoomId);
+        if (room != null) {
+            synchronized (room) {
+                room.remove(clientHandler);
+                if (room.size() == 0) {
+                    rooms.remove(currentRoomId);
+                }
+            }
+        }
+        clientHandler.roomId = null;
+    }
+
+    private void broadcastToRoom(String roomId, String message) {
+        Room room = rooms.get(roomId);
+        if (room == null) {
+            return;
+        }
+
+        for (ClientHandler member : room.membersSnapshot()) {
+            member.send(message);
+        }
     }
 
     private void disconnect(ClientHandler clientHandler) {
         clients.remove(clientHandler);
         clientHandler.close();
 
+        String roomId = clientHandler.roomId;
+        leaveCurrentRoom(clientHandler);
+
         players.remove(clientHandler.playerId);
-        broadcast(MessageParser.left(clientHandler.playerId));
+        if (roomId != null) {
+            broadcastToRoom(roomId, MessageParser.left(clientHandler.playerId));
+        }
+    }
+
+    private String nextRoomId() {
+        return String.format("R%04d", roomSequence.getAndIncrement());
+    }
+
+    private static final class Room {
+        private final String roomId;
+        private final List<ClientHandler> members = new ArrayList<>(2);
+
+        private Room(String roomId) {
+            this.roomId = roomId;
+        }
+
+        private synchronized void add(ClientHandler clientHandler) {
+            members.add(clientHandler);
+        }
+
+        private synchronized void remove(ClientHandler clientHandler) {
+            members.remove(clientHandler);
+        }
+
+        private synchronized int size() {
+            return members.size();
+        }
+
+        private synchronized List<ClientHandler> membersSnapshot() {
+            return List.copyOf(members);
+        }
     }
 
     private final class ClientHandler implements Runnable {
@@ -145,6 +274,7 @@ public class OnlineServer {
         private final PrintWriter writer;
 
         private volatile boolean connected = true;
+        private volatile String roomId;
 
         private ClientHandler(String playerId, Socket socket) throws IOException {
             this.playerId = playerId;
@@ -175,10 +305,18 @@ public class OnlineServer {
                 case "JOIN" -> {
                     // JOIN acknowledged by WELCOME sent right after connect.
                 }
-                case "JUMP" -> broadcast(MessageParser.jump(playerId));
+                case "CREATE_ROOM" -> handleCreateRoom(this);
+                case "JOIN_ROOM" -> handleJoinRoom(this, message);
+                case "JUMP" -> {
+                    if (roomId != null) {
+                        broadcastToRoom(roomId, MessageParser.jump(playerId));
+                    }
+                }
                 case "STATE" -> {
-                    PlayerState state = MessageParser.parseState(message);
-                    onStateUpdate(new PlayerState(playerId, state.x(), state.y(), state.score()));
+                    if (roomId != null) {
+                        PlayerState state = MessageParser.parseState(message);
+                        onStateUpdate(this, new PlayerState(playerId, state.x(), state.y(), state.score()));
+                    }
                 }
                 default -> {
                     // Ignore unknown commands for forward compatibility.

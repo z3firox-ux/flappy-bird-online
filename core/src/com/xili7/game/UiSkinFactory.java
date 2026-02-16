@@ -9,6 +9,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 
 public final class UiSkinFactory {
@@ -39,6 +40,16 @@ public final class UiSkinFactory {
         buttonStyle.down = new TextureRegionDrawable(new TextureRegion(lightTexture));
         buttonStyle.over = new TextureRegionDrawable(new TextureRegion(accentTexture));
         skin.add("default", buttonStyle);
+
+        TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
+        textFieldStyle.font = font;
+        textFieldStyle.fontColor = Color.WHITE;
+        textFieldStyle.background = new TextureRegionDrawable(new TextureRegion(darkTexture));
+        textFieldStyle.cursor = new TextureRegionDrawable(new TextureRegion(lightTexture));
+        textFieldStyle.focusedBackground = new TextureRegionDrawable(new TextureRegion(accentTexture));
+        textFieldStyle.messageFont = font;
+        textFieldStyle.messageFontColor = new Color(0.75f, 0.75f, 0.8f, 1f);
+        skin.add("default", textFieldStyle);
 
         Slider.SliderStyle sliderStyle = new Slider.SliderStyle();
         sliderStyle.background = new TextureRegionDrawable(new TextureRegion(darkTexture));
