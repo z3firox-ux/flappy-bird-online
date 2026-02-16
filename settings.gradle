@@ -1,1 +1,4 @@
+// Modernized settings for Gradle 8.x: explicit root name + module includes.
+rootProject.name = 'flappy-bird-online'
+
 include 'core', 'desktop'
