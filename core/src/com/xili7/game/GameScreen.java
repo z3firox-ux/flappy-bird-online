@@ -57,7 +57,8 @@ public class GameScreen implements Screen {
     private boolean gameOver;
     private boolean notReady;
     private boolean birdInAction;
-    private Animation birdAnimation;
+    // Typed animation fixes modern LibGDX generic API expectations.
+    private Animation<TextureRegion> birdAnimation;
     private Image birdActor;
     private float timer;
     private float birdVelocity;
@@ -158,7 +159,7 @@ public class GameScreen implements Screen {
         for (int i = 0; i < 3; i++) {
             birdRegions.add(new TextureRegion(birdTexture, 0, (59 + 11) * i, birdTexture.getWidth(), 59));
         }
-        birdAnimation = new Animation(1 / 14f, birdRegions, Animation.PlayMode.LOOP_REVERSED);
+        birdAnimation = new Animation<>(1 / 14f, birdRegions, Animation.PlayMode.LOOP_REVERSED);
         birdActor = new Image(new TextureRegionDrawable(birdAnimation.getKeyFrame(0)));
         birdActor.setBounds(0.25f * WORLD_WIDTH, 0.5f * WORLD_HEIGHT, 0.15f * WORLD_WIDTH, WORLD_HEIGHT / 17f);
         birdActor.setOrigin(birdActor.getWidth() / 2, birdActor.getHeight() / 2);
