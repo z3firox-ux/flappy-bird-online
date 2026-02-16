@@ -5,19 +5,14 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
-import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.scenes.scene2d.Action;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
-import com.badlogic.gdx.scenes.scene2d.actions.RunnableAction;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
@@ -60,10 +55,8 @@ public class GameScreen implements Screen {
     // Typed animation fixes modern LibGDX generic API expectations.
     private Animation<TextureRegion> birdAnimation;
     private Image birdActor;
-    private float timer;
     private float birdVelocity;
-    private float initialY;
-    private float idleTime;
+    private float groundOffset;
 
 
     private final float pipeSpaceWidth = 4 * WORLD_WIDTH / 6;
@@ -75,7 +68,7 @@ public class GameScreen implements Screen {
 
     private static int bestScore;
     private int currentScore;
-    private boolean afterShake;
+    private boolean scoreVisible;
 
     private class BirdListener extends ClickListener {
         @Override
@@ -87,33 +80,20 @@ public class GameScreen implements Screen {
             if(gameOver) {
                 return;
             }
-            birdActor.clearActions();
             birdActor.setRotation(0);
-            birdInAction = true;
-            Action riseAction = Actions.parallel(Actions.moveBy(0, 0.15f * WORLD_HEIGHT, 0.25f), Actions.rotateTo(45, 0.25f));
-            Action riseThenFall = Actions.sequence(riseAction, Actions.run(new Runnable() {
-                public void run() {
-                    birdVelocity = 0;
-                    initialY = birdActor.getY();
-                    idleTime = 0;
-                    birdInAction = false;
-                }
-            }), Actions.rotateTo(-75, 0.35f));
-            birdActor.addAction(riseThenFall);
+            birdVelocity = 130;
+            birdInAction = false;
         }
     }
 
     class OkListener extends ClickListener {
         @Override
         public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-            okImage.setPosition(0.15f * WORLD_WIDTH, 0.24f * WORLD_HEIGHT);
             return true;
         }
 
         @Override
         public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
-            okImage.setPosition(0.15f * WORLD_WIDTH, 0.25f * WORLD_HEIGHT);
-            stage.addAction(Actions.fadeOut(0.5f));
             ((Game)Gdx.app.getApplicationListener()).setScreen(new MainScreen());
         }
     }
@@ -126,8 +106,6 @@ public class GameScreen implements Screen {
         MainGameViewport viewport = new MainGameViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         stage = new Stage(viewport);
         stage.getRoot().setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-        stage.getRoot().getColor().a = 0;
-        stage.getRoot().addAction(Actions.fadeIn(0.5f));
         birdListener = new BirdListener();
         stage.addListener(birdListener);
 
@@ -164,8 +142,7 @@ public class GameScreen implements Screen {
         birdActor.setBounds(0.25f * WORLD_WIDTH, 0.5f * WORLD_HEIGHT, 0.15f * WORLD_WIDTH, WORLD_HEIGHT / 17f);
         birdActor.setOrigin(birdActor.getWidth() / 2, birdActor.getHeight() / 2);
         birdVelocity = 0;
-        birdInAction = true;
-        initialY = birdActor.getY();
+        birdInAction = false;
         stage.addActor(birdActor);
 
         pipeHeadTexture1 = new Texture("png/pipe_head_1.png");
@@ -226,49 +203,35 @@ public class GameScreen implements Screen {
     private void checkCollision() {
         if (birdActor.getY() >= WORLD_HEIGHT - birdActor.getHeight()) {
             birdActor.setY(WORLD_HEIGHT - birdActor.getHeight());
+            birdVelocity = 0;
         }
 
-        Action shakeAction = Actions.sequence(Actions.moveBy(-0.05f * WORLD_WIDTH, 0, 0.5f, Interpolation.bounceIn), Actions.moveBy(0.05f * WORLD_WIDTH, 0, 0.5f, Interpolation.bounceIn));
-        Action afterShakeAction = Actions.sequence(shakeAction, shakeAction, Actions.run(new Runnable() {
-            public void run() {
-                afterShake = true;
-                if (currentScore > bestScore) {
-                    bestScore = currentScore;
-                    newRecordImage.setVisible(true);
-                }
-            }
-        }));
-        Action birdFallAction1 = Actions.parallel(Actions.moveBy(0, 0.15f * WORLD_HEIGHT - birdActor.getY(), 0.4f), Actions.rotateTo(-90, 0.4f));
-        Action birdFallAction = Actions.sequence(birdFallAction1, Actions.run(new Runnable() {
-            @Override
-            public void run() {
-                gameOverGroup.setVisible(true);
-                gameOverGroup.getColor().a = 0;
-                gameOverGroup.addAction(Actions.fadeIn(0.5f));
-            }
-        }));
-
         if (0.15f * WORLD_HEIGHT > birdActor.getY()) {
-            gameOver = true;
-            stage.removeListener(birdListener);
-            birdActor.clearActions();
-            stage.addAction(afterShakeAction);
-            birdActor.addAction(birdFallAction);
+            handleGameOver();
             return;
         }
 
         for (Vector2 pipe : pipes) {
             if (birdActor.getX() + birdActor.getWidth() >= pipe.x && birdActor.getX() < pipe.x + WORLD_WIDTH / 6f) {
                 if (birdActor.getY() < (pipe.y + WORLD_HEIGHT / 30f) || birdActor.getY() + birdActor.getHeight() > pipe.y + pipeSpaceHeight) {
-                    gameOver = true;
-                    stage.removeListener(birdListener);
-                    birdActor.clearActions();
-                    stage.addAction(afterShakeAction);
-                    birdActor.addAction(birdFallAction);
+                    handleGameOver();
                     break;
                 }
             }
         }
+    }
+
+    private void handleGameOver() {
+        gameOver = true;
+        stage.removeListener(birdListener);
+        birdActor.setRotation(-90);
+        birdActor.setY(0.15f * WORLD_HEIGHT);
+        scoreVisible = true;
+        if (currentScore > bestScore) {
+            bestScore = currentScore;
+            newRecordImage.setVisible(true);
+        }
+        gameOverGroup.setVisible(true);
     }
 
     private void printScoreAt(float x, float y, int score) {
@@ -316,18 +279,19 @@ public class GameScreen implements Screen {
             }
         }
 
-        timer += Gdx.graphics.getDeltaTime();
-        idleTime += Gdx.graphics.getDeltaTime();
-        birdActor.setDrawable(new TextureRegionDrawable(birdAnimation.getKeyFrame(timer)));
+        birdActor.setDrawable(new TextureRegionDrawable(birdAnimation.getKeyFrame(0)));
 
-        if (!gameOver && 0 == groundGroup.getActions().size) {
-            groundGroup.setX(0);
-            groundGroup.addAction(Actions.moveBy(-WORLD_WIDTH / 20f, 0, 1f / 25));
+        if (!gameOver) {
+            groundOffset -= WORLD_WIDTH / 20f;
+            if (groundOffset <= -WORLD_WIDTH / 20f) {
+                groundOffset = 0;
+            }
+            groundGroup.setX(groundOffset);
         }
 
         if (!gameOver && !birdInAction) {
             birdVelocity -= 400 * Gdx.graphics.getDeltaTime(); //-400 is the gravity value
-            float newY = initialY + (birdVelocity) / 2 * idleTime; //y-initial + 1/2at^2
+            float newY = birdActor.getY() + birdVelocity * Gdx.graphics.getDeltaTime();
             birdActor.setY(newY);
         }
 
@@ -346,7 +310,7 @@ public class GameScreen implements Screen {
         }
         stage.getBatch().end();
         stage.draw();
-        if (afterShake) {
+        if (scoreVisible) {
             stage.getBatch().begin();
             printScoreAt(0.75f * WORLD_WIDTH, 0.55f * WORLD_HEIGHT, currentScore);
             printScoreAt(0.75f * WORLD_WIDTH, 0.44f * WORLD_HEIGHT, bestScore);
