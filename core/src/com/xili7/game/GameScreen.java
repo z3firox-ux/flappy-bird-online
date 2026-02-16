@@ -15,13 +15,17 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -47,7 +51,10 @@ public class GameScreen implements Screen {
     private OrthographicCamera camera;
     private Viewport viewport;
     private SpriteBatch batch;
-    private BitmapFont font;
+    private BitmapFont hudFont;
+    private BitmapFont titleFont;
+    private BitmapFont scoreFont;
+    private BitmapFont promptFont;
     private GlyphLayout glyphLayout;
     private Preferences preferences;
 
@@ -90,6 +97,9 @@ public class GameScreen implements Screen {
     private Table pauseRoot;
     private Slider pauseVolumeSlider;
     private Label pauseVolumeValue;
+    private Texture backButtonTexture;
+    private Texture optionsButtonTexture;
+    private Texture mainMenuButtonTexture;
 
     public GameScreen(MyGdxGame game) {
         this.game = game;
@@ -104,8 +114,10 @@ public class GameScreen implements Screen {
         camera.update();
 
         batch = game.getBatch();
-        font = game.getFont();
-        font.getData().setScale(0.7f);
+        hudFont = createCrispFont(0.72f);
+        titleFont = createCrispFont(1.12f);
+        scoreFont = createCrispFont(0.92f);
+        promptFont = createCrispFont(0.56f);
         glyphLayout = new GlyphLayout();
 
         game.applyMusicState();
@@ -131,7 +143,6 @@ public class GameScreen implements Screen {
         scoreCounted = new boolean[4];
 
         createPauseUi();
-        Gdx.input.setInputProcessor(inputMultiplexer);
 
         resetGame();
     }
@@ -139,6 +150,9 @@ public class GameScreen implements Screen {
     private void createPauseUi() {
         pauseStage = new Stage(new ScreenViewport(), batch);
         pauseSkin = UiSkinFactory.createDefaultSkin();
+        backButtonTexture = new Texture("png/back.png");
+        optionsButtonTexture = new Texture("png/options.png");
+        mainMenuButtonTexture = new Texture("png/mainmenu.png");
         pauseRoot = new Table();
         pauseRoot.setFillParent(true);
         pauseStage.addActor(pauseRoot);
@@ -147,6 +161,16 @@ public class GameScreen implements Screen {
         inputMultiplexer.addProcessor(pauseStage);
 
         setPauseView(PauseView.MENU);
+        setPaused(false);
+    }
+
+    private void setPaused(boolean pausedState) {
+        paused = pausedState;
+        if (pauseRoot != null) {
+            pauseRoot.setVisible(pausedState);
+            pauseRoot.setTouchable(pausedState ? Touchable.enabled : Touchable.disabled);
+        }
+        Gdx.input.setInputProcessor(pausedState ? inputMultiplexer : null);
     }
 
     private void setPauseView(PauseView view) {
@@ -156,14 +180,17 @@ public class GameScreen implements Screen {
 
         if (view == PauseView.MENU) {
             Label title = new Label("PAUSED", pauseSkin);
-            TextButton returnButton = new TextButton("RETURN", pauseSkin);
-            TextButton optionsButton = new TextButton("OPTIONS", pauseSkin);
-            TextButton mainMenuButton = new TextButton("MAIN MENU", pauseSkin);
+            ImageButton returnButton = new ImageButton(new TextureRegionDrawable(new TextureRegion(backButtonTexture)));
+            ImageButton optionsButton = new ImageButton(new TextureRegionDrawable(new TextureRegion(optionsButtonTexture)));
+            ImageButton mainMenuButton = new ImageButton(new TextureRegionDrawable(new TextureRegion(mainMenuButtonTexture)));
+            returnButton.getImage().setScaling(Scaling.fit);
+            optionsButton.getImage().setScaling(Scaling.fit);
+            mainMenuButton.getImage().setScaling(Scaling.fit);
 
             returnButton.addListener(new ChangeListener() {
                 @Override
                 public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                    paused = false;
+                    setPaused(false);
                 }
             });
 
@@ -177,15 +204,15 @@ public class GameScreen implements Screen {
             mainMenuButton.addListener(new ChangeListener() {
                 @Override
                 public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                    paused = false;
+                    setPaused(false);
                     game.setScreen(new MainMenuScreen(game));
                 }
             });
 
             pauseRoot.add(title).padBottom(20f).row();
-            pauseRoot.add(returnButton).width(240f).row();
-            pauseRoot.add(optionsButton).width(240f).row();
-            pauseRoot.add(mainMenuButton).width(240f).row();
+            pauseRoot.add(returnButton).size(220f, 72f).row();
+            pauseRoot.add(optionsButton).size(220f, 72f).row();
+            pauseRoot.add(mainMenuButton).size(240f, 72f).row();
         } else {
             Label title = new Label("PAUSE OPTIONS", pauseSkin);
             Label volumeLabel = new Label("VOLUME", pauseSkin);
@@ -243,7 +270,7 @@ public class GameScreen implements Screen {
             scoreCounted[i] = false;
         }
 
-        paused = false;
+        setPaused(false);
         setPauseView(PauseView.MENU);
         notReady = true;
         gameOver = false;
@@ -270,10 +297,10 @@ public class GameScreen implements Screen {
                 if (pauseView == PauseView.OPTIONS) {
                     setPauseView(PauseView.MENU);
                 } else {
-                    paused = false;
+                    setPaused(false);
                 }
             } else {
-                paused = true;
+                setPaused(true);
                 setPauseView(PauseView.MENU);
             }
         }
@@ -354,6 +381,16 @@ public class GameScreen implements Screen {
         }
     }
 
+    private BitmapFont createCrispFont(float scale) {
+        BitmapFont font = new BitmapFont();
+        font.getData().setScale(scale);
+        font.setUseIntegerPositions(true);
+        for (TextureRegion region : font.getRegions()) {
+            region.getTexture().setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        }
+        return font;
+    }
+
     private void handleGameOver() {
         gameOver = true;
         birdRotation = -90;
@@ -367,10 +404,13 @@ public class GameScreen implements Screen {
         }
     }
 
-    private void drawCenteredText(String text, float y) {
+    private void drawCenteredText(BitmapFont font, String text, float y, boolean bold) {
         glyphLayout.setText(font, text);
         float x = (WORLD_WIDTH - glyphLayout.width) / 2f;
         font.draw(batch, glyphLayout, x, y);
+        if (bold) {
+            font.draw(batch, glyphLayout, x + 0.2f, y);
+        }
     }
 
     @Override
@@ -403,19 +443,16 @@ public class GameScreen implements Screen {
         }
 
         if (gameOver) {
-            font.getData().setScale(1.1f);
-            drawCenteredText("GAME OVER", 0.65f * WORLD_HEIGHT);
-            font.getData().setScale(0.9f);
-            drawCenteredText("SCORE: " + currentScore, 0.55f * WORLD_HEIGHT);
+            drawCenteredText(titleFont, "GAME OVER", 0.65f * WORLD_HEIGHT, true);
+            drawCenteredText(scoreFont, "SCORE: " + currentScore, 0.55f * WORLD_HEIGHT, true);
             if (newBest) {
-                drawCenteredText("NEW BEST!", 0.46f * WORLD_HEIGHT);
+                drawCenteredText(scoreFont, "NEW BEST!", 0.46f * WORLD_HEIGHT, true);
             }
-            font.getData().setScale(0.7f);
-            drawCenteredText("SPACE / ENTER para reiniciar", 0.32f * WORLD_HEIGHT);
+            drawCenteredText(promptFont, "SPACE/ENTER para reiniciar", 0.32f * WORLD_HEIGHT, true);
         } else {
-            drawCenteredText("Score: " + currentScore, 0.92f * WORLD_HEIGHT);
+            drawCenteredText(scoreFont, "SCORE: " + currentScore, 0.92f * WORLD_HEIGHT, true);
             if (notReady) {
-                drawCenteredText("TAP / SPACE", 0.7f * WORLD_HEIGHT);
+                drawCenteredText(hudFont, "TAP/SPACE", 0.7f * WORLD_HEIGHT, true);
             }
         }
 
@@ -451,6 +488,22 @@ public class GameScreen implements Screen {
 
     @Override
     public void dispose() {
+        if (hudFont != null) {
+            hudFont.dispose();
+            hudFont = null;
+        }
+        if (titleFont != null) {
+            titleFont.dispose();
+            titleFont = null;
+        }
+        if (scoreFont != null) {
+            scoreFont.dispose();
+            scoreFont = null;
+        }
+        if (promptFont != null) {
+            promptFont.dispose();
+            promptFont = null;
+        }
         if (skyTexture != null) {
             skyTexture.dispose();
             skyTexture = null;
@@ -482,6 +535,18 @@ public class GameScreen implements Screen {
         if (pauseSkin != null) {
             pauseSkin.dispose();
             pauseSkin = null;
+        }
+        if (backButtonTexture != null) {
+            backButtonTexture.dispose();
+            backButtonTexture = null;
+        }
+        if (optionsButtonTexture != null) {
+            optionsButtonTexture.dispose();
+            optionsButtonTexture = null;
+        }
+        if (mainMenuButtonTexture != null) {
+            mainMenuButtonTexture.dispose();
+            mainMenuButtonTexture = null;
         }
     }
 }
