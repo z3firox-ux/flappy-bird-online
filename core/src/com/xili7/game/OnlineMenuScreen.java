@@ -24,6 +24,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Enumeration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,13 +46,14 @@ public class OnlineMenuScreen implements Screen {
 
     private Label statusLabel;
     private TextField playerNameField;
-    private TextField ipField;
+    private TextField joinHostIpField;
     private TextField roomIdField;
     private TextButton createRoomButton;
     private TextButton joinRoomButton;
     private TextButton backButton;
     private ExecutorService networkExecutor;
     private String connectedHost;
+    private String hostLanIp;
 
     private interface OnlineAction {
         void run() throws IOException;
@@ -81,8 +83,8 @@ public class OnlineMenuScreen implements Screen {
         statusLabel = new Label("Connect and create/join a room", skin);
         playerNameField = new TextField("", skin);
         playerNameField.setMessageText("Player name");
-        ipField = new TextField("", skin);
-        ipField.setMessageText("Host IP (shown after Create Room)");
+        joinHostIpField = new TextField("", skin);
+        joinHostIpField.setMessageText("Host IP");
         roomIdField = new TextField("", skin);
         roomIdField.setMessageText("Room ID");
 
@@ -99,11 +101,11 @@ public class OnlineMenuScreen implements Screen {
                         setStatus("Creating room...");
                         String lanIp = ensureLocalServerRunning();
                         if (lanIp == null || lanIp.isEmpty()) {
+                            hostLanIp = null;
                             setStatus("Room created, but LAN IP could not be detected");
-                            updateIpField("");
                         } else {
+                            hostLanIp = lanIp;
                             setStatus("Server active at " + lanIp + ":" + DEFAULT_PORT + ". Creating room...");
-                            updateIpField(lanIp);
                         }
                         ensureConnected(LOOPBACK_HOST);
                         onlineClient.createRoom();
@@ -117,7 +119,7 @@ public class OnlineMenuScreen implements Screen {
             public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
                 final String requestedRoomId = roomIdField.getText() == null ? "" : roomIdField.getText().trim();
                 final String requestedName = playerNameField.getText() == null ? "" : playerNameField.getText().trim();
-                final String hostIp = ipField.getText() == null ? "" : ipField.getText().trim();
+                final String hostIp = joinHostIpField.getText() == null ? "" : joinHostIpField.getText().trim();
 
                 if (requestedName.isEmpty()) {
                     statusLabel.setText("Please enter your player name");
@@ -157,7 +159,7 @@ public class OnlineMenuScreen implements Screen {
 
         root.add(title).row();
         root.add(playerNameField).row();
-        root.add(ipField).row();
+        root.add(joinHostIpField).row();
         root.add(roomIdField).row();
         root.add(createRoomButton).row();
         root.add(joinRoomButton).row();
@@ -238,24 +240,36 @@ public class OnlineMenuScreen implements Screen {
     }
 
     private String detectLanIp() {
+        String fallbackAddress = null;
         try {
             Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
-            while (networkInterfaces.hasMoreElements()) {
+            while (networkInterfaces != null && networkInterfaces.hasMoreElements()) {
                 NetworkInterface networkInterface = networkInterfaces.nextElement();
-                if (!networkInterface.isUp() || networkInterface.isLoopback()) {
+                if (!isNetworkInterfaceUsable(networkInterface)) {
                     continue;
                 }
+
                 Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
                 while (addresses.hasMoreElements()) {
                     InetAddress address = addresses.nextElement();
-                    if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
+                    if (!(address instanceof Inet4Address) || address.isLoopbackAddress()) {
+                        continue;
+                    }
+                    if (address.isSiteLocalAddress()) {
                         return address.getHostAddress();
+                    }
+                    if (fallbackAddress == null) {
+                        fallbackAddress = address.getHostAddress();
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (SocketException e) {
             setStatus("Could not inspect network interfaces: " + e.getMessage());
             return null;
+        }
+
+        if (fallbackAddress != null) {
+            return fallbackAddress;
         }
 
         try {
@@ -268,6 +282,10 @@ public class OnlineMenuScreen implements Screen {
         }
 
         return null;
+    }
+
+    private boolean isNetworkInterfaceUsable(NetworkInterface networkInterface) throws SocketException {
+        return networkInterface.isUp() && !networkInterface.isLoopback() && !networkInterface.isVirtual();
     }
 
     private boolean isServerReachable(String host, int port) {
@@ -292,16 +310,8 @@ public class OnlineMenuScreen implements Screen {
         Gdx.app.postRunnable(new Runnable() {
             @Override
             public void run() {
-                game.setScreen(new LobbyScreen(game, onlineClient, roomId));
-            }
-        });
-    }
-
-    private void updateIpField(String ip) {
-        Gdx.app.postRunnable(new Runnable() {
-            @Override
-            public void run() {
-                ipField.setText(ip == null ? "" : ip);
+                String lobbyHostIp = LOOPBACK_HOST.equals(connectedHost) ? hostLanIp : null;
+                game.setScreen(new LobbyScreen(game, onlineClient, roomId, lobbyHostIp));
             }
         });
     }
